@@ -79,7 +79,7 @@ func main() {
 			line := srcScanner.Text()
 
 			// do lexical analyzer
-			milestone1.LexicalAnalyzer(line, *dfa, &currentState)
+			milestone1.LexicalAnalyzer(line, *dfa, &currentState, tokenWriter)
 		}
 
 		// final message

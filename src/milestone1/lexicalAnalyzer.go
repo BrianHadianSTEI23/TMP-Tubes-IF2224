@@ -7,61 +7,59 @@ and it will be assigned as identifier
 
 package milestone1
 
-func LexicalAnalyzer(line string, dfa DFA, currentState *string) {
+import (
+	"bufio"
+)
+
+func LexicalAnalyzer(line string, dfa DFA, currentState *string, tokenWriter *bufio.Writer) {
 
 	/*
 		1. check if current state is already at finish
 		2. if yes, then check the validity
 		3. if not, go into next state based on the current input (char) and current state*/
 
-	if keys[iter] == string(line[j]) {
-		found = true
-		iter = 0
-		// check if found, will the next char be space?
-		if j+1 < len(line) {
-			if line[j+1] == ' ' {
-				// VALID! APPEND INTO OUTPUT FILE
-				writer.WriteString(dfa.FinalState[keys[iter]])
-			} else {
-				// INVALID! CHECK AGAIN
-				writer.WriteString(dfa.FinalState[keys[iter]])
+	var currentToken string = ""
 
-			}
+	// first, check current is a final state?
+	for _, fs := range dfa.FinalState {
+		if (*currentState) == fs {
+			var convertedToken string = Tokenize(currentToken)
+			tokenWriter.WriteString(convertedToken)
+			currentToken = ""
+			break
 		}
-	} else {
-		iter++
 	}
 
 	// run through for each char in the line
 	for j := 0; j < len(line); j++ {
 
-		// check if the char is a final state, FOUND!
-		found := false
-		iter := 0
+		// get the first char
+		currentToken += string(line[j])
+		transitionKey := TransitionKey{
+			State: *currentState,
+			Input: string(line[j]),
+		}
+		tmp := dfa.Transition[transitionKey]
+		currentState = &tmp // now current state is at the second after the start state
+		// (sorry about the naming because i'm too tired to think about names...)
 
-		for !found && iter < len(keys) {
+		// check if the current state is among the final state
+		for _, fs := range dfa.FinalState {
+			if (*currentState) == fs {
 
-			if keys[iter] == string(line[j]) {
-				found = true
-				iter = 0
-				// check if found, will the next char be space?
+				// if yes, check the next char whether it is a space or not
 				if j+1 < len(line) {
+
+					// if it is a space, write to buffer
 					if line[j+1] == ' ' {
 						// VALID! APPEND INTO OUTPUT FILE
-						writer.WriteString(dfa.FinalState[keys[iter]])
-					} else {
-						// INVALID! CHECK AGAIN
-						writer.WriteString(dfa.FinalState[keys[iter]])
-
+						var convertedToken string = Tokenize(currentToken)
+						tokenWriter.WriteString(convertedToken)
+						currentToken = ""
 					}
 				}
-			} else {
-				iter++
+				break
 			}
-
 		}
-
-		// if stil not found, then check using the dfa file
-
 	}
 }
