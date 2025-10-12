@@ -68,7 +68,7 @@ func main() {
 		currentState := dfa.StartState
 		srcFile := os.Args[2]
 		srcReference, _ := os.Open(srcFile)
-		tokenReference, _ := os.Create("tokens.txt")
+		tokenReference, _ := os.Create("../test/output/tokens.txt")
 
 		srcScanner := bufio.NewScanner(srcReference)
 		tokenWriter := bufio.NewWriter(tokenReference)
