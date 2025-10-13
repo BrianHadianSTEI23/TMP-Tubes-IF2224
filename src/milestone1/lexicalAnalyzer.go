@@ -52,11 +52,15 @@ func LexicalAnalyzer(line string, dfa DFA, currentState *string, tokenWriter *bu
 
 					// if it is a space, write to buffer
 					if line[j+1] == ' ' {
-						// VALID! APPEND INTO OUTPUT FILE
 						var convertedToken string = Tokenize(currentToken)
 						tokenWriter.WriteString(convertedToken)
 						currentToken = ""
 					}
+				} else if line[j] == ';' { //  check if the last element is a ";"
+					// VALID! APPEND INTO OUTPUT FILE
+					var convertedToken string = Tokenize(currentToken)
+					tokenWriter.WriteString(convertedToken)
+					currentToken = ""
 				}
 				break
 			}
