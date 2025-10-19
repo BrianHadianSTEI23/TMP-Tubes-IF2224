@@ -18,17 +18,21 @@ Pada Milestone 1, program mengimplementasikan analisis leksikal untuk bahasa Pas
 
 ## Cara Instalasi dan Penggunaan Program
 1. Clone repository dan pergi ke folder hasil clone
-```git clone https://github.com/BrianHadianSTEI23/TMP-Tubes-IF2224.git```
+```bash
+git clone https://github.com/BrianHadianSTEI23/TMP-Tubes-IF2224.git
+```
 
-2. Go to src
+3. Go to src
 ```cd src```
 
-3. Run program 
-```go run main.go <path to dfa rule file> <path input file>```
-or 
-```./main.exe <path to dfa rule file> <path input file>``` for windows
-or 
-```./main <path to dfa rule file> <path input file>``` for linux
+4. Run program
+```bash
+go run main.go <path to dfa rule file> <path input file>
+or for windows
+./main.exe <path to dfa rule file> <path input file>
+or for linux
+./main <path to dfa rule file> <path input file>
+```
 
 ## Pembagian Tugas
 ### Milestone 1
