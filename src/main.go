@@ -27,48 +27,70 @@ func main() {
 
 	// input the dfa reference file
 	if len(os.Args) > 1 {
-		// read the dfa reference file
-		dfa_file := os.Args[1]
+		// read the dfa reference file (g mungkin berubah)
+		dfa_file := "milestone1/dfa.txt"
 
 		// make it into data structure (using dictionary)
-		dfaReference, _ := os.Open(dfa_file)
+		dfaReference, err := os.Open(dfa_file)
+		if err != nil {
+			fmt.Printf("ERROR: error opening DFA file: %v\n", err)
+			return
+		}
+		defer dfaReference.Close()
 		dfaScanner := bufio.NewScanner(dfaReference)
-		dfa := new(milestone1.DFA)
+		dfa := &milestone1.DFA{
+			Transition: make(map[milestone1.TransitionKey]string),
+		}
 
 		for dfaScanner.Scan() {
-			line := dfaScanner.Text()
+			line := strings.TrimSpace(dfaScanner.Text())
+			// skip comment n empty lines
+			if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
+				continue
+			}
+
 			if strings.Contains(line, "Start_state") {
-
-				// get the idx
-				idx := strings.Index(line, "Start_state")
-
 				// get the value of the start state
-				dfa.StartState = line[idx:]
+				dfa.StartState = strings.TrimSpace(strings.TrimPrefix(line, "Start_state = "))
 			} else if strings.Contains(line, "Final_state") {
-				// get the idx
-				idx := strings.Index(line, "Start_state")
-
 				// get the value of the final state
-				finalStates := strings.Split(line[idx:], ", ")
+				finalStatesStr := strings.TrimSpace(strings.TrimPrefix(line, "Final_state = "))
+				finalStates := strings.Split(finalStatesStr, ", ")
 
-				dfa.FinalState = finalStates
-			} else if strings.Contains(line, "State") { // assume that every other word is a state function
-				elements := strings.Split(line, " ")
-
-				transitionVal := milestone1.TransitionKey{
-					State: elements[0],
-					Input: elements[1],
+				// Clean up each final state
+				for i := range finalStates {
+					finalStates[i] = strings.TrimSpace(finalStates[i])
 				}
-
-				dfa.Transition[transitionVal] = elements[2]
+				dfa.FinalState = finalStates
+			} else {
+				// assume that every other line is a state transition
+				elements := strings.Fields(line)
+				if len(elements) >= 3 {
+					transitionVal := milestone1.TransitionKey{
+						State: elements[0],
+						Input: elements[1],
+					}
+					dfa.Transition[transitionVal] = elements[2]
+				}
 			}
 		}
 
 		// init variables
 		currentState := dfa.StartState
-		srcFile := os.Args[2]
-		srcReference, _ := os.Open(srcFile)
-		tokenReference, _ := os.Create("../test/output/tokens.txt")
+		srcFile := os.Args[1]
+		srcReference, err := os.Open(srcFile)
+		if err != nil {
+			fmt.Printf("ERROR: error opening source file: %v\n", err)
+			return
+		}
+		defer srcReference.Close()
+
+		tokenReference, err := os.Create("../test/output/tokens.txt")
+		if err != nil {
+			fmt.Printf("ERROR: error creating token file: %v\n", err)
+			return
+		}
+		defer tokenReference.Close()
 
 		srcScanner := bufio.NewScanner(srcReference)
 		tokenWriter := bufio.NewWriter(tokenReference)
@@ -86,7 +108,7 @@ func main() {
 		fmt.Println("Tokenizing is done....")
 
 	} else {
-		fmt.Printf("Jangan lupa file DFAnya ya...")
+		fmt.Printf("Jangan lupa file Pascalnya ya...")
 		return
 	}
 }
