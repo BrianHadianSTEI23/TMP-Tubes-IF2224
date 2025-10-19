@@ -6,6 +6,9 @@ func Tokenize(token string) string {
 	if token == "" {
 		return ""
 	}
+	if len(token) > 0 && token[0] == '\'' && (len(token) == 1 || token[len(token)-1] != '\'') {
+		return "ERROR(" + token + ")"
+	}
 	keywords := map[string]bool{
 		"program": true,
 		"var":     true,
