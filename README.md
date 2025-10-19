@@ -20,14 +20,17 @@ Pada Milestone 1, program mengimplementasikan analisis leksikal untuk bahasa Pas
 1. Clone repository dan pergi ke folder hasil clone
 ```git clone https://github.com/BrianHadianSTEI23/TMP-Tubes-IF2224.git```
 
-2. Run program 
-```go run main.go <path input file>```
+2. Go to src
+```cd src```
+
+3. Run program 
+```go run main.go <path to dfa rule file> <path input file>```
 
 ## Pembagian Tugas
 ### Milestone 1
 | NIM | Tugas |
 | ---- | ---- |
-| 13523026 | program, laporan |
-| 13523048 | Inisialisasi, diagram |
+| 13523026 | Laporan, program, testing |
+| 13523048 | Inisialisasi, diagram, testing |
 | 13523092 | Diagram |
-| 13523102 | Diagra,, laporan |
+| 13523102 | Diagram, laporan |
