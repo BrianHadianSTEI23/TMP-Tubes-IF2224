@@ -1,5 +1,10 @@
-program Unterminated;
+program Hello;
+
+var
+  a, b: integer;
 
 begin
-  writeln('Hello World);
+  a := 5;
+  b := a + 10;
+  writeln('Result = ', b);
 end.
