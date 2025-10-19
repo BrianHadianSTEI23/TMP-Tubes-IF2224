@@ -27,8 +27,8 @@ func main() {
 
 	// input the dfa reference file
 	if len(os.Args) > 1 {
-		// read the dfa reference file (g mungkin berubah)
-		dfa_file := "milestone1/dfa.txt"
+		// read the dfa reference file ()
+		dfa_file := os.Args[1]
 
 		// make it into data structure (using dictionary)
 		dfaReference, err := os.Open(dfa_file)
@@ -77,7 +77,7 @@ func main() {
 
 		// init variables
 		currentState := dfa.StartState
-		srcFile := os.Args[1]
+		srcFile := os.Args[2]
 		srcReference, err := os.Open(srcFile)
 		if err != nil {
 			fmt.Printf("ERROR: error opening source file: %v\n", err)
@@ -108,7 +108,7 @@ func main() {
 		fmt.Println("Tokenizing is done....")
 
 	} else {
-		fmt.Printf("Jangan lupa file Pascalnya ya...")
+		fmt.Printf("Jangan lupa file DFA ya...")
 		return
 	}
 }
