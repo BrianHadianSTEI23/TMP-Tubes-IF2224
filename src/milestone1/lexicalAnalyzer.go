@@ -51,10 +51,14 @@ func processToken(line string, start int, dfa DFA, curr *string) (string, int) {
 	var currentToken string = ""
 	longestValidToken := ""
 	longestValidPos := start
+	wasInString := false
 
 	// for each char in line started from start
 	for currentPos < len(line) {
 		char := line[currentPos]
+		if isReadingString((*curr)) {
+			wasInString = true
+		}
 		// stop at whitespace unless string
 		if unicode.IsSpace(rune(char)) && !isReadingString(*curr) {
 			break
@@ -69,6 +73,9 @@ func processToken(line string, start int, dfa DFA, curr *string) (string, int) {
 		}
 		tmp, exists := dfa.Transition[transitionKey]
 		if !exists {
+			if wasInString {
+				return currentToken, currentPos
+			}
 			break
 		}
 		*curr = tmp
@@ -82,6 +89,10 @@ func processToken(line string, start int, dfa DFA, curr *string) (string, int) {
 				break
 			}
 		}
+	}
+	// kasus string g ada single quote tutup
+	if wasInString && longestValidToken == "" {
+		return currentToken, currentPos
 	}
 	if longestValidToken != "" {
 		return longestValidToken, longestValidPos
