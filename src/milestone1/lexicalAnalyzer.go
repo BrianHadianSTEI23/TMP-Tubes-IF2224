@@ -40,9 +40,51 @@ func LexicalAnalyzer(line string, dfa DFA, currentState *string, tokenWriter *bu
 				tokenWriter.WriteString(convertedToken + "\n")
 				fmt.Println(convertedToken)
 			}
+		} else {
+			if i < len(line) && !unicode.IsSpace(rune(line[i])) {
+				errorToken := collectError(line, i)
+				if errorToken != "" {
+					convertedToken := "ERROR(" + errorToken + ")"
+					tokenWriter.WriteString(convertedToken + "\n")
+					fmt.Println(convertedToken)
+					i += len(errorToken) // skip karakter error
+				} else {
+					i++
+				}
+			}
 		}
 
 	}
+}
+
+// collect error sampe spasi atau delimiter
+func collectError(line string, start int) string {
+	if start >= len(line) {
+		return ""
+	}
+	errorToken := ""
+	i := start
+	demilit := map[byte]bool{
+		';': true, ',': true, '(': true, ')': true,
+		'[': true, ']': true, '.': true, ':': true,
+		'+': true, '-': true, '*': true, '/': true,
+		'=': true, '<': true, '>': true,
+	}
+
+	for i < len(line) {
+		char := line[i]
+		// stop di spasi
+		if unicode.IsSpace(rune(char)) {
+			break
+		}
+
+		if demilit[char] {
+			break
+		}
+		errorToken += string(char)
+		i++
+	}
+	return errorToken
 }
 
 func processToken(line string, start int, dfa DFA, curr *string) (string, int) {
@@ -86,9 +128,9 @@ func processToken(line string, start int, dfa DFA, curr *string) (string, int) {
 	if longestValidToken != "" {
 		return longestValidToken, longestValidPos
 	}
-	if start < len(line) && !unicode.IsSpace(rune(line[start])) {
-		return "", start + 1
-	}
+	// if start < len(line) && !unicode.IsSpace(rune(line[start])) {
+	// 	return "", start + 1
+	// }
 	return "", start
 }
 
