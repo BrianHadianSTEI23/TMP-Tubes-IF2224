@@ -18,7 +18,7 @@ Pada Milestone 1, program mengimplementasikan analisis leksikal untuk bahasa Pas
 
 ## Cara Instalasi dan Penggunaan Program
 1. Clone repository dan pergi ke folder hasil clone
-```git clone https://github.com/BrianHadianSTEI23/temp-if2224-tugas-besar.git```
+```git clone https://github.com/BrianHadianSTEI23/TMP-Tubes-IF2224.git```
 
 2. Run program 
 ```go run main.go <path input file>```
