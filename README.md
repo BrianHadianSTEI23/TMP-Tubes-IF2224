@@ -32,5 +32,5 @@ Pada Milestone 1, program mengimplementasikan analisis leksikal untuk bahasa Pas
 | ---- | ---- |
 | 13523026 | Laporan, program, testing |
 | 13523048 | Inisialisasi, diagram, testing |
-| 13523092 | Diagram |
-| 13523102 | Diagram, laporan |
+| 13523092 | Diagram, testing, foto |
+| 13523102 | Diagram, laporan, testing |
