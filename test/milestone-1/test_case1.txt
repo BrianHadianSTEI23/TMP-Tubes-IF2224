@@ -1,0 +1,16 @@
+program LoopTest;
+
+var
+  count: integer;
+  done: boolean;
+
+begin
+  count := 0;
+  done := false;
+  while not done do
+  begin
+    count := count + 1;
+    if count >= 5 then
+      done := true;
+  end;
+end.

@@ -1,0 +1,8 @@
+program DecimalTest;
+
+var 
+  number : integer;
+
+begin
+  number := 20..5;
+end.

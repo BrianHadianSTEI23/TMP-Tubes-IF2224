@@ -1,0 +1,12 @@
+Program WhileError;
+
+var
+  number: integer;
+
+begin
+  while number:<0 do
+  begin 
+    writeln('Hello World');
+    number := number + 1;
+  end;
+end.

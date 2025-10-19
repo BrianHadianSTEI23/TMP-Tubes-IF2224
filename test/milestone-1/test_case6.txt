@@ -1,0 +1,11 @@
+program LoopError;
+
+var
+  scores: array [1..10] of integer;
+  i: integer;
+
+begin
+  for i := 1 to 1.5 do
+    scores[i] := i ** 10;
+  writeln('First = ', scores[1]);
+end.

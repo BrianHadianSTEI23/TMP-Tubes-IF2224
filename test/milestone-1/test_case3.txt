@@ -1,0 +1,9 @@
+program Countdown;
+
+var
+  i: integer;
+
+begin
+  for i := 5 downto 1 do
+    writeln('T-minus ', i);
+end.

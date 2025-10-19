@@ -1,0 +1,13 @@
+program Compare;
+
+var
+  x, y: integer;
+
+begin
+  x := 7;
+  y := 10.15;
+  if x < y then
+    x := x * 2
+  else
+    y := y div 2;
+end.
