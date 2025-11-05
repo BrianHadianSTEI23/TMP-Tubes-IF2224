@@ -105,7 +105,7 @@ func main() {
 		}
 
 		// final message
-		fmt.Println("Tokenizing is done....")
+		// fmt.Println("Tokenizing is done....")
 
 	} else {
 		fmt.Printf("Jangan lupa file DFA ya...")
