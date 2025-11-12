@@ -11,6 +11,7 @@ package main
 import (
 	"bufio"
 	"compiler/milestone1"
+	"compiler/milestone2"
 	"fmt"
 	"os"
 	"strings"
@@ -106,6 +107,31 @@ func main() {
 
 		// final message
 		// fmt.Println("Tokenizing is done....")
+
+		// 2. SYNTAX ANALYZER
+		// initiate parent node
+		var root = milestone2.AbstractSyntaxTree{
+			Value:          "<program>",
+			ProductionRule: nil,
+			Children:       []*milestone2.AbstractSyntaxTree{},
+		}
+		// read the file again
+		lexResultReference, err := os.ReadFile("../test/output/tokens.txt")
+		if err != nil {
+			fmt.Printf("ERROR: error opening DFA file: %v\n", err)
+			return
+		}
+
+		// convert the file contents into array
+		lexResult := strings.Split(string(lexResultReference), "\n")
+
+		// input it into syntaxAnalyzer
+		result := milestone2.SyntaxAnalyzer(lexResult, &root)
+
+		// print the abstract syntax tree into screen (later into txt will be implemented)
+		if result != 1 || result != 2 { // not an error
+			milestone2.PrintAbstractSyntaxTree(root)
+		}
 
 	} else {
 		fmt.Printf("Jangan lupa file DFA ya...")

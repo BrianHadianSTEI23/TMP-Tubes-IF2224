@@ -20,76 +20,86 @@ TO DO
 
 package milestone2
 
-func SyntaxAnalyzer(lexResult string, currentNode AbstractSyntaxTree) {
+var productionRule = map[string][]string{
+	"<program>":                 {"<program-header>", "<declaration-part>", "<compound-statement>", "DOT(.)"},
+	"<program-header":           {"KEYWORD(program)", "IDENTIFIER", "SEMICOLON(;)"},
+	"<declaration-part>":        {"(const-declaration)*", "(type-declaration)*", "(var-declaration)*", "(subprogram-declaration)*"},
+	"<const-declaration>":       {"KEYWORD(konstanta)", "IDENTIFIER", "=", "NUMBER", "SEMICOLON(;)"},
+	"<type-declaration>":        {"KEYWORD(tipe)", "IDENTIFIER", "=", "<type-definition>", "SEMICOLON(;)"},
+	"<var-declaration>":         {"KEYWORD(variabel)", "<identifier-list>", "COLON(:)", "<type>", "SEMICOLON(;)"},
+	"<identifier-list>":         {"IDENTIFIER", "(COMMA(,) IDENTIFIER)*"},
+	"<type>":                    {"KEYWORD(integer)", "IDENTIFIER", "SEMICOLON(;)"},
+	"<array-type>":              {"KEYWORD(larik)", "LBRACKET([)", "<range>", "RBRACKET(])", "KEYWORD(dari)", "<type>"},
+	"<range>":                   {"<expression>", "RANGE_OPERATOR(..)", "<expression>"},
+	"<subprogram-declaration>":  {"<procedure-declaration>", "<function-declaration>"},
+	"<procedure-declaration>":   {"KEYWORD(prosedur)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
+	"<function-declaration>":    {"KEYWORD(function)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
+	"<formal-parameter-list>":   {"LPARENTHESES(()", "<parameter-group>", "(SEMICOLON(;) <parameter-group>)*", "RPARENTHESES())"},
+	"<compound-statement>":      {"KEYWORD(mulai)", "<statement-list>", "KEYWORD(selesai)"},
+	"<statement>":               {"<assignment-statement>*", "<if-statement>*", "<while-statement>*", "<for-statement>*"},
+	"<statement-list>":          {"<statement>", "(SEMICOLON(;) <statement>)*"},
+	"<assignment-statement>":    {"IDENTIFIER", "ASSIGN-OPERATOR(:=)", "<expression>"},
+	"<if-statement>":            {"KEYWORD(jika)", "<expression>", "KEYWORD(maka)", "<statement>", "(KEYWORD(selain-itu) <statement>)*"},
+	"<while-statement>":         {"KEYWORD(selama)", "<expression>", "KEYWORD(lakukan)", "<statement>"},
+	"<for-statement>":           {"KEYWORD(untuk)", "IDENTIFIER", "ASSIGN_OPERATOR(:=)", "<expression>", "(KEYWORD(ke) | KEYWORD(turun-ke))", "<expression>", "KEYWORD(lakukan)", "<statement>"},
+	"<parameter-list>":          {"<expression>", "(COMMA(,) <expression)*"},
+	"<expression>":              {"<simple-expression>", "(<relational-operator> <simple-expression>)*"},
+	"<simple-expression>":       {"(ARITHMETIC_OPERATOR(+) | ARITHMETIC_OPERATOR(-))*", "<term>", "(<additive-operator> <term>)*"},
+	"<term>":                    {"<factor>", "(<multiplicative-operator> <factor>)*"},
+	"<factor>":                  {"(IDENTIFIER | NUMBER | CHAR_LITERAL | STRING_LITERAL | ( LPARENTHESES(() <expression> RPARENTHESES()) ) | LOGICAL_OPERATOR(tidak))", "(<factor> | <function-declaration>)"},
+	"<relational-operator>":     {"= | > | < | >= | <= | <>"},
+	"<additive-operator>":       {"+ | - | atau"},
+	"<multiplicative-operator>": {"* | / | bagi | mod | dan"},
+}
 
-	// push the queue (cfg's) into the current node
-	if len(currentNode.children) == 0 {
+func SyntaxAnalyzer(lexResult []string, currentNode *AbstractSyntaxTree) int {
 
-		if currentNode.value == "<program>" {
-			currentNode.productionRule = []string{"<program-header> <declaration-part> <compound-statement> DOT(.)"}
-		} else if currentNode.value == "<program-header>" {
-			currentNode.productionRule = []string{"KEYWORD(program) IDENTIFIER SEMICOLON(;)"}
-		} else if currentNode.value == "<declaration-part>" {
-			currentNode.productionRule = []string{"(const-declaration)* (type-declaration)* (var-declaration)* (subprogram-declaration)*"}
-		} else if currentNode.value == "<const-declaration>" {
-			currentNode.productionRule = []string{"KEYWORD(konstanta) IDENTIFIER = NUMBER SEMICOLON(;)"}
-		} else if currentNode.value == "<type-declaration>" {
-			currentNode.productionRule = []string{"KEYWORD(tipe) IDENTIFIER = <type-definition> SEMICOLON(;)"}
-		} else if currentNode.value == "<var-declaration>" {
-			currentNode.productionRule = []string{"KEYWORD(variabel) <identifier-list> COLON <type> SEMICOLON(;)"}
-		} else if currentNode.value == "<identifier-list>" {
-			currentNode.productionRule = []string{"IDENTIFIER (COMMA(,) IDENTIFIER)*"}
-		} else if currentNode.value == "<type>" {
-			currentNode.productionRule = []string{"KEYWORD(integer) IDENTIFIER SEMICOLON(;)"}
-		} else if currentNode.value == "<array-type>" {
-			currentNode.productionRule = []string{"KEYWORD(larik) LBRACKET([) <range> RBRACKET(]) KEYWORD(dari) <type>"}
-		} else if currentNode.value == "<range>" {
-			currentNode.productionRule = []string{"<expression> RANGE_OPERATOR(..) <expression>"}
-		} else if currentNode.value == "<subprogram-declaration>" {
-			currentNode.productionRule = []string{"<procedure-declaration>", "<function-declaration>"}
-		} else if currentNode.value == "<procedure-declaration>" {
-			currentNode.productionRule = []string{"KEYWORD(prosedur) IDENTIFIER (formal-parameter-list)* + SEMICOLON(;)"}
-		} else if currentNode.value == "<function-declaration>" {
-			currentNode.productionRule = []string{"KEYWORD(fungsi) IDENTIFIER (formal-parameter-list)* SEMICOLON(;)"}
-		} else if currentNode.value == "<formal-parameter-list>" {
-			currentNode.productionRule = []string{"LPARENTHESES(() <parameter-group> (SEMICOLON(;) <parameter-group>)* RPARENTHESES())"}
-		} else if currentNode.value == "<compound-statement>" {
-			currentNode.productionRule = []string{"KEYWORD(mulai) <statement-list> KEYWORD(selesai)"}
-		} else if currentNode.value == "<statement>" {
-			currentNode.productionRule = []string{"<assignment-statement>* <if-statement>* <while-statement>* <for-statement>*"}
-		} else if currentNode.value == "<statement-list>" {
-			currentNode.productionRule = []string{"<statement> (SEMICOLON(;) <statement>)*"}
-		} else if currentNode.value == "<assignment-statement>" {
-			currentNode.productionRule = []string{"IDENTIFIER ASSIGN-OPERATOR(:=) <expression>"}
-		} else if currentNode.value == "<if-statement>" {
-			currentNode.productionRule = []string{"KEYWORD(jika) <expression> KEYWORD(maka) <statement> (KEYWORD(selain-itu) <statement>)*"}
-		} else if currentNode.value == "<while-statement>" {
-			currentNode.productionRule = []string{"KEYWORD(selama) <expression> KEYWORD(lakukan) <statement>"}
-		} else if currentNode.value == "<for-statement>" {
-			currentNode.productionRule = []string{"KEYWORD(untuk) IDENTIFIER ASSIGN_OPERATOR(:=) <expression> KEYWORD(ke) <expression> KEYWORD(lakukan) <statement>", "KEYWORD(untuk) IDENTIFIER ASSIGN_OPERATOR(:=) <expression> KEYWORD(turun-ke) <expression> KEYWORD(lakukan) <statement>"}
-		} else if currentNode.value == "<parameter-list>" {
-			currentNode.productionRule = []string{"<expression> (COMMA(,) <expression)*"}
-		} else if currentNode.value == "<expression>" {
-			currentNode.productionRule = []string{"<simple-expression> (<relational-operator> <simple-expression>)*"}
-		} else if currentNode.value == "<simple-expression>" {
-			currentNode.productionRule = []string{"ARITHMETIC_OPERATOR(+)* <term> (<additive-operator> <term>)*"}
-		} else if currentNode.value == "<term>" {
-			currentNode.productionRule = []string{"<factor> (<multiplicative-operator> <factor>)*"}
-		} else if currentNode.value == "<factor>" {
-			currentNode.productionRule = []string{"IDENTIFIER <factor>", "NUMBER <factor>", "CHAR_LITERAL <factor>", "STRING_LITERAL <factor>", "LPARENTHESES(() <expression> RPARENTHESES()) <factor>", "LOGICAL_OPERATOR(tidak) <factor>",
-				"IDENTIFIER <function-declaration>", "NUMBER <function-declaration>", "CHAR_LITERAL <function-declaration>", "STRING_LITERAL <function-declaration>", "LPARENTHESES(() <expression> RPARENTHESES()) <function-declaration>", "LOGICAL_OPERATOR(tidak) <function-declaration>"}
-		} else if currentNode.value == "<relational-operator>" {
-			currentNode.productionRule = []string{"=", ">", "<=", ">=", "<", "<>"}
-		} else if currentNode.value == "<additive-operator>" {
-			currentNode.productionRule = []string{"+", "-", "atau"}
-		} else if currentNode.value == "<multiplicative-operator>" {
-			currentNode.productionRule = []string{"*", "/", "bagi", "mod", "dan"}
+	// generate many production rule that can be generated using |
+	currentProductionRule := productionRule[(*currentNode).Value]
+
+	// check each process, does the element exist in the input or not
+	foundFalse := false
+	i := 0
+	currProdRuleIndex := 0
+	for !foundFalse && i < len(lexResult) {
+
+		checkMatchProdRule := matchProductionRule(lexResult[i], currentProductionRule, currProdRuleIndex)
+		// if the current string exist in the currentproductionRule, increment i (move forward)
+		if checkMatchProdRule != "" {
+			i++
+		} else if currProdRuleIndex != len(currentProductionRule)-1 { // move forward with the currentProductionRule
+			currProdRuleIndex++
+		} else { // there is no production rule that can satisfy the current index
+			foundFalse = true
+		}
+	}
+	if foundFalse {
+		return 1 // syntax error
+	}
+
+	// add the children nodes using the production rules
+	for _, element := range currentProductionRule {
+		// make new child node
+		var childNode = AbstractSyntaxTree{
+			Value:          element,
+			ProductionRule: nil,
+			Children:       []*AbstractSyntaxTree{},
+		}
+		currentNode.Children = append(currentNode.Children, &childNode)
+	}
+
+	// do recursive on the children nodes
+	for _, childNode := range currentNode.Children {
+		// check if the childnode already a terminal
+		if checkNonTerminal(childNode.Value) {
+			// check if the childnode can result in a syntax error
+			if SyntaxAnalyzer(lexResult[i:], childNode) == 1 {
+				return 1
+			}
 		}
 	}
 
-	// parse the queue in the current node queue
+	// here, the parentmost node has already finished and can be printed into txt
 
-	// add the children nodes using the production rules
-
-	// do recursive on the children nodes
+	return 0
 }

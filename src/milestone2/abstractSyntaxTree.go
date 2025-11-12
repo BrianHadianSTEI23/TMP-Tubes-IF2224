@@ -3,16 +3,16 @@ package milestone2
 import "fmt"
 
 type AbstractSyntaxTree struct {
-	value          string
-	productionRule []string
-	children       []*AbstractSyntaxTree
+	Value          string
+	ProductionRule []string
+	Children       []*AbstractSyntaxTree
 }
 
-func printAbstractSyntaxTree(tree AbstractSyntaxTree) {
-	fmt.Print(tree.value)
-	if len(tree.children) != 0 {
-		for i := 0; i < len(tree.children); i++ {
-			printAbstractSyntaxTree((*tree.children[i]))
+func PrintAbstractSyntaxTree(tree AbstractSyntaxTree) {
+	fmt.Print(tree.Value)
+	if len(tree.Children) != 0 {
+		for i := 0; i < len(tree.Children); i++ {
+			PrintAbstractSyntaxTree((*tree.Children[i]))
 		}
 	}
 }
