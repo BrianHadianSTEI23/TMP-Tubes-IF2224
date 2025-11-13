@@ -58,6 +58,7 @@ func matchProductionRule(input string, currProductionRule []string, currProdRule
 				return ""
 			}
 			if i < currProdRuleIndex { // the found product rule is behind the currPrdRuleIndex, continue
+				i++
 				continue
 			}
 
@@ -88,8 +89,19 @@ func matchProductionRule(input string, currProductionRule []string, currProdRule
 			}
 			i++ // go to next part of prod rule
 		} else { // if not a terminal, then expand
-			currProductionRule = append(currProductionRule[:i], append(productionRule[currProductionRule[i]], currProductionRule[i:]...)...) // basically this expand the currProductionRule (i'm sorry it's gibberish)
+			expandedRules := productionRule[currProductionRule[i]]
+			if len(expandedRules) == 0 {
+				// non-terminal not found in productionRule map, skip it
+				i++
+			} else {
+				// expand: replace current non-terminal with its production rules
+				currProductionRule = append(currProductionRule[:i], append(expandedRules, currProductionRule[i+1:]...)...)
+				// don't increment i, process the expanded rules starting from position i
+			}
 		}
+	}
+	if i >= len(currProductionRule) {
+		return ""
 	}
 	return currProductionRule[i]
 }

@@ -22,7 +22,7 @@ package milestone2
 
 var productionRule = map[string][]string{
 	"<program>":                 {"<program-header>", "<declaration-part>", "<compound-statement>", "DOT(.)"},
-	"<program-header":           {"KEYWORD(program)", "IDENTIFIER", "SEMICOLON(;)"},
+	"<program-header>":          {"KEYWORD(program)", "IDENTIFIER", "SEMICOLON(;)"},
 	"<declaration-part>":        {"(const-declaration)*", "(type-declaration)*", "(var-declaration)*", "(subprogram-declaration)*"},
 	"<const-declaration>":       {"KEYWORD(konstanta)", "IDENTIFIER", "=", "NUMBER", "SEMICOLON(;)"},
 	"<type-declaration>":        {"KEYWORD(tipe)", "IDENTIFIER", "=", "<type-definition>", "SEMICOLON(;)"},
@@ -61,13 +61,14 @@ func SyntaxAnalyzer(lexResult []string, currentNode *AbstractSyntaxTree) int {
 	foundFalse := false
 	i := 0
 	currProdRuleIndex := 0
-	for !foundFalse && i < len(lexResult) {
+	for !foundFalse && i < len(lexResult) && currProdRuleIndex < len(currentProductionRule) {
 
 		checkMatchProdRule := matchProductionRule(lexResult[i], currentProductionRule, currProdRuleIndex)
 		// if the current string exist in the currentproductionRule, increment i (move forward)
 		if checkMatchProdRule != "" {
 			i++
-		} else if currProdRuleIndex != len(currentProductionRule)-1 { // move forward with the currentProductionRule
+			currProdRuleIndex++
+		} else if currProdRuleIndex < len(currentProductionRule)-1 { // move forward with the currentProductionRule
 			currProdRuleIndex++
 		} else { // there is no production rule that can satisfy the current index
 			foundFalse = true
