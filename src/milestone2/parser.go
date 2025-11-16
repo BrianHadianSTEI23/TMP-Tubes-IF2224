@@ -62,7 +62,7 @@ func (p *Parser) expect(tok string) error {
 		p.next()
 		return nil
 	}
-	return fmt.Errorf("expected %q but got %q at Pos %d", tok, p.peek(), p.Pos)
+	return fmt.Errorf("expected %q but got %q at Pos %d", tok, p.Tokens[p.Pos-1], p.Pos-1)
 }
 
 // "<program>":                 {"<program-header>", "<declaration-part>", "<compound-statement>", "DOT(.)"},
