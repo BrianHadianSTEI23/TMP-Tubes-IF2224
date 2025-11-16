@@ -33,7 +33,7 @@ var productionRule = map[string][]string{
 	"<range>":                   {"<expression>", "RANGE_OPERATOR(..)", "<expression>"},
 	"<subprogram-declaration>":  {"<procedure-declaration>", "<function-declaration>"},
 	"<procedure-declaration>":   {"KEYWORD(prosedur)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
-	"<function-declaration>":    {"KEYWORD(function)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
+	"<function-declaration>":    {"KEYWORD(fungsi)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
 	"<formal-parameter-list>":   {"LPARENTHESES(()", "<parameter-group>", "(SEMICOLON(;) <parameter-group>)*", "RPARENTHESES())"},
 	"<compound-statement>":      {"KEYWORD(mulai)", "<statement-list>", "KEYWORD(selesai)"},
 	"<statement>":               {"<assignment-statement>*", "<if-statement>*", "<while-statement>*", "<for-statement>*"},
@@ -52,55 +52,16 @@ var productionRule = map[string][]string{
 	"<multiplicative-operator>": {"* | / | bagi | mod | dan"},
 }
 
-func SyntaxAnalyzer(lexResult []string, currentNode *AbstractSyntaxTree) int {
+func SyntaxAnalyzer(lexResult []string, currentNode *AbstractSyntaxTree) {
 
 	// generate many production rule that can be generated using |
-	currentProductionRule := productionRule[(*currentNode).Value]
 
 	// check each process, does the element exist in the input or not
-	foundFalse := false
-	i := 0
-	currProdRuleIndex := 0
-	for !foundFalse && i < len(lexResult) && currProdRuleIndex < len(currentProductionRule) {
-
-		checkMatchProdRule := matchProductionRule(lexResult[i], currentProductionRule, currProdRuleIndex)
-		// if the current string exist in the currentproductionRule, increment i (move forward)
-		if checkMatchProdRule != "" {
-			i++
-			currProdRuleIndex++
-		} else if currProdRuleIndex < len(currentProductionRule)-1 { // move forward with the currentProductionRule
-			currProdRuleIndex++
-		} else { // there is no production rule that can satisfy the current index
-			foundFalse = true
-		}
-	}
-	if foundFalse {
-		return 1 // syntax error
-	}
 
 	// add the children nodes using the production rules
-	for _, element := range currentProductionRule {
-		// make new child node
-		var childNode = AbstractSyntaxTree{
-			Value:          element,
-			ProductionRule: nil,
-			Children:       []*AbstractSyntaxTree{},
-		}
-		currentNode.Children = append(currentNode.Children, &childNode)
-	}
 
 	// do recursive on the children nodes
-	for _, childNode := range currentNode.Children {
-		// check if the childnode already a terminal
-		if checkNonTerminal(childNode.Value) {
-			// check if the childnode can result in a syntax error
-			if SyntaxAnalyzer(lexResult[i:], childNode) == 1 {
-				return 1
-			}
-		}
-	}
 
 	// here, the parentmost node has already finished and can be printed into txt
 
-	return 0
 }
