@@ -13,6 +13,8 @@ Kelompok 9 - temp (TMP)
 ## Deskripsi Program
 Pada Milestone 1, program mengimplementasikan analisis leksikal untuk bahasa Pascal-S menggunakan DFA (Deterministix Finite Automaton). Program menerima input berupa file yang berisi kode Pascal dan mengeluarkan token sebagai file. Compiler dibuat dengan menggunakan bahasa Go. Alasan penggunaan adalah bahasa Go yang memiliki waktu kompilasi yang cepat.
 
+Pada Milestone 2, program mengimplementasikan  syntax analyzer untuk bahasa Pascal-S dengan recursive descent parser.
+
 ## Requirements
 - Go
 
@@ -42,3 +44,12 @@ or for linux
 | 13523048 | Inisialisasi, diagram, program, testing |
 | 13523092 | Diagram, testing, foto |
 | 13523102 | Diagram, laporan, testing |
+
+
+### Milestone 2
+| NIM | Tugas |
+| ---- | ---- |
+| 13523026 | program, testing |
+| 13523048 | program |
+| 13523092 | program|
+| 13523102 | laporan|
