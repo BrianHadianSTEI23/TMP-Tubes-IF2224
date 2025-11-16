@@ -14,6 +14,8 @@ import (
 	"compiler/milestone2"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -95,7 +97,6 @@ func main() {
 
 		srcScanner := bufio.NewScanner(srcReference)
 		tokenWriter := bufio.NewWriter(tokenReference)
-		defer tokenWriter.Flush() // this is to make sure every transition is written into the file
 
 		// get each text and token
 		for srcScanner.Scan() {
@@ -105,26 +106,30 @@ func main() {
 			milestone1.LexicalAnalyzer(line, *dfa, &currentState, tokenWriter)
 		}
 
+		tokenWriter.Flush() // this is to make sure every transition is written into the file
+
 		// final message
 		// fmt.Println("Tokenizing is done....")
 
 		// 2. SYNTAX ANALYZER
 		// initiate parent node
 		var root *milestone2.AbstractSyntaxTree
-		// var root = milestone2.AbstractSyntaxTree{
-		// 	NonTerminalValue: "<program>",
-		// 	TerminalValue:    "",
-		// 	Children:         []*milestone2.AbstractSyntaxTree{},
-		// }
-		// read the file again
-		lexResultReference, err := os.ReadFile("../test/output/tokens.txt")
-		if err != nil {
-			fmt.Printf("ERROR: error opening DFA file: %v\n", err)
-			return
-		}
 
-		// convert the file contents into array
-		lexResult := strings.Split(string(lexResultReference), "\n")
+		// read the file again
+		_, filename, _, _ := runtime.Caller(0)
+		base := filepath.Dir(filename)
+
+		// path to tokens.txt
+		path := filepath.Join(base, "..", "test", "output", "tokens.txt")
+		path = filepath.Clean(path)
+
+		// read
+		lexResultReferenceBytes, err := os.ReadFile(path)
+		if err != nil {
+			panic(err)
+		}
+		lexResultReference := strings.ReplaceAll(string(lexResultReferenceBytes), "\r", "")
+		lexResult := strings.Split(lexResultReference, "\n")
 
 		// input it into syntaxAnalyzer
 		var p = milestone2.Parser{
@@ -134,8 +139,10 @@ func main() {
 		root, err = p.ParseProgram()
 
 		// print the abstract syntax tree into screen (later into txt will be implemented)
-		if err != nil { // not an error
+		if err == nil { // not an error
 			milestone2.PrintAbstractSyntaxTree(*root)
+		} else {
+			fmt.Println("Syntax error:", err)
 		}
 
 	} else {

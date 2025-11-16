@@ -5,6 +5,7 @@ package milestone2
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 func checkNonTerminal(result string) bool {
@@ -50,22 +51,21 @@ func (p *Parser) next() string {
 	return t
 }
 func (p *Parser) accept(tok string) bool {
-	m, _ := regexp.MatchString(`^`+tok, p.peek())
-	if m {
+	if strings.HasPrefix(p.peek(), tok) {
 		p.next()
 		return true
 	}
 	return false
 }
 func (p *Parser) expect(tok string) error {
-	m, _ := regexp.MatchString(`^`+tok, p.peek())
-	if m {
+	if strings.HasPrefix(p.peek(), tok) {
 		p.next()
 		return nil
 	}
 	return fmt.Errorf("expected %q but got %q at Pos %d", tok, p.peek(), p.Pos)
 }
 
+// "<program>":                 {"<program-header>", "<declaration-part>", "<compound-statement>", "DOT(.)"},
 func (p *Parser) ParseProgram() (*AbstractSyntaxTree, error) {
 	root := NewNode("<program>") // entrypoint for every program
 
@@ -100,6 +100,7 @@ func (p *Parser) ParseProgram() (*AbstractSyntaxTree, error) {
 	return root, nil
 }
 
+// "<program-header>":          {"KEYWORD(program)", "IDENTIFIER", "SEMICOLON(;)"},
 func (p *Parser) ParseProgramHeader() (*AbstractSyntaxTree, error) {
 	// create program header node and if exist, append it to the children
 	ph := NewNode("<program-header>")
@@ -337,6 +338,7 @@ func (p *Parser) ParseVarDeclaration() (*AbstractSyntaxTree, error) {
 	return vd, nil
 }
 
+// "<identifier-list>":         {"IDENTIFIER", "(COMMA(,) IDENTIFIER)*"},
 func (p *Parser) ParseIdentifierList() (*AbstractSyntaxTree, error) {
 	// init + create main node
 	il := NewNode("<identifier-list>")
@@ -375,6 +377,7 @@ func (p *Parser) ParseIdentifierList() (*AbstractSyntaxTree, error) {
 	return il, nil
 }
 
+// "<type>":                    {"KEYWORD(integer)", "IDENTIFIER", "SEMICOLON(;)"},
 func (p *Parser) ParseType() (*AbstractSyntaxTree, error) {
 	// init + create main node
 	t := NewNode("<type>")
@@ -405,8 +408,7 @@ func (p *Parser) ParseType() (*AbstractSyntaxTree, error) {
 	return t, nil
 }
 
-// 	"<array-type>":              {"KEYWORD(larik)", "LBRACKET([)", "<range>", "RBRACKET(])", "KEYWORD(dari)", "<type>"},
-
+// "<array-type>":              {"KEYWORD(larik)", "LBRACKET([)", "<range>", "RBRACKET(])", "KEYWORD(dari)", "<type>"},
 func (p *Parser) ParseArrayType() (*AbstractSyntaxTree, error) {
 	// init + create main node
 	at := NewNode("<array-type>")
@@ -557,6 +559,7 @@ func (p *Parser) ParseFunctionDeclaration() (*AbstractSyntaxTree, error) {
 	return fd, nil
 }
 
+// "<procedure-declaration>":   {"KEYWORD(prosedur)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
 func (p *Parser) ParseProcedureDeclaration() (*AbstractSyntaxTree, error) {
 	// init + create main node
 	pd := NewNode("<procedure-declaration>")
@@ -735,9 +738,7 @@ func (p *Parser) ParseCompoundStatement() (*AbstractSyntaxTree, error) {
 	return cs, nil
 }
 
-// /////////////////////////////////////////////////// INI KEBAWAH BELUM DIBENERIN /////////////////////////
-//
-//	"<statement>":               {"<assignment-statement>*", "<if-statement>*", "<while-statement>*", "<for-statement>*"},
+// "<statement>":               {"<assignment-statement>*", "<if-statement>*", "<while-statement>*", "<for-statement>*"},
 func (p *Parser) ParseStatement() (*AbstractSyntaxTree, error) {
 	// init
 	s := NewNode("<statement>")
@@ -1296,6 +1297,7 @@ func (p *Parser) ParseRelationalOperator() (*AbstractSyntaxTree, error) {
 	return ro, nil
 }
 
+// "<additive-operator>":       {"+ | - | atau"},
 func (p *Parser) ParseAdditiveOperator() (*AbstractSyntaxTree, error) {
 	// init + create main node
 	ao := NewNode("<additive-operator>")
@@ -1316,6 +1318,7 @@ func (p *Parser) ParseAdditiveOperator() (*AbstractSyntaxTree, error) {
 	return ao, nil
 }
 
+// "<multiplicative-operator>": {"* | / | bagi | mod | dan"},
 func (p *Parser) ParseMultiplicativeOperator() (*AbstractSyntaxTree, error) {
 	// init + create main node
 	mo := NewNode("<multiplicative-operator>")
