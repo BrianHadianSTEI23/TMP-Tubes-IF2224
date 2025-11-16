@@ -4,24 +4,8 @@ package milestone2
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 )
-
-func checkNonTerminal(result string) bool {
-	m, err := regexp.MatchString(`^<[A-Za-z_][A-Za-z0-9_]*`, result)
-
-	if err != nil {
-		fmt.Println("your regex is faulty")
-		// you should log it or throw an error
-		return false
-	}
-	if m {
-		return true
-	} else {
-		return false
-	}
-}
 
 type Parser struct {
 	Tokens []string
@@ -62,7 +46,8 @@ func (p *Parser) expect(tok string) error {
 		p.next()
 		return nil
 	}
-	return fmt.Errorf("expected %q but got %q at Pos %d", tok, p.Tokens[p.Pos-1], p.Pos-1)
+	fmt.Println(p.Tokens)
+	return fmt.Errorf("expected %q but got %q at Pos %d", tok, p.peek(), p.Pos)
 }
 
 // "<program>":                 {"<program-header>", "<declaration-part>", "<compound-statement>", "DOT(.)"},
@@ -258,30 +243,18 @@ func (p *Parser) ParseTypeDeclaration() (*AbstractSyntaxTree, error) {
 	td.Children = append(td.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
 
 	// expect type definitiona
-	for {
-		n, nerr := regexp.MatchString("^NUMBER", p.peek())
-		c, cerr := regexp.MatchString("^CHAR_LITERAL", p.peek())
-		s, serr := regexp.MatchString("^STRING_LITERAL", p.peek())
-		if n {
-			_ = p.accept("NUMBER")
-			if nerr != nil {
-				return nil, nerr
-			}
-			td.Children = append(td.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
-		} else if c {
-			_ = p.accept("CHAR_LITERAL")
-			if cerr != nil {
-				return nil, cerr
-			}
-			td.Children = append(td.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
-		} else if s {
-			_ = p.accept("STRING_LITERAL")
-			if serr != nil {
-				return nil, serr
-			}
-			td.Children = append(td.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
-		}
-		break
+	n := strings.HasPrefix(p.peek(), "NUMBER")
+	c := strings.HasPrefix(p.peek(), "CHAR_LITERAL")
+	s := strings.HasPrefix(p.peek(), "STRING_LITERAL")
+	if n {
+		_ = p.accept("NUMBER")
+		td.Children = append(td.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
+	} else if c {
+		_ = p.accept("CHAR_LITERAL")
+		td.Children = append(td.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
+	} else if s {
+		_ = p.accept("STRING_LITERAL")
+		td.Children = append(td.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
 	}
 
 	// expect semicolon
@@ -294,46 +267,67 @@ func (p *Parser) ParseTypeDeclaration() (*AbstractSyntaxTree, error) {
 	return td, nil
 }
 
-// "<var-declaration>":         {"KEYWORD(variabel)", "<identifier-list>", "COLON(:)", "<type>", "SEMICOLON(;)"},
+func (p *Parser) ParseSingleVarDecl() (*AbstractSyntaxTree, error) {
+	decl := NewNode("<single-var-decl>")
+	var err error
+
+	// identifier list
+	il, err := p.ParseIdentifierList()
+	if err != nil {
+		return nil, err
+	}
+	decl.Children = append(decl.Children, il)
+
+	// colon
+	err = p.expect("COLON(:)")
+	if err != nil {
+		return nil, err
+	}
+	decl.Children = append(decl.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+	// type
+	t, err := p.ParseType()
+	if err != nil {
+		return nil, err
+	}
+	decl.Children = append(decl.Children, t)
+
+	// semicolon
+	err = p.expect("SEMICOLON(;)")
+	if err != nil {
+		return nil, err
+	}
+	decl.Children = append(decl.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+	return decl, nil
+}
+
 func (p *Parser) ParseVarDeclaration() (*AbstractSyntaxTree, error) {
-	// init + create main node
 	vd := NewNode("<var-declaration>")
 	var err error
 
-	// expect KEYWORD(program)
+	// expect KEYWORD(variabel)
 	err = p.expect("KEYWORD(variabel)")
 	if err != nil {
 		return nil, err
 	}
 	vd.Children = append(vd.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect <identifier-list>
-	il, err := p.ParseIdentifierList()
-	if err != nil {
-		return (nil), err
-	}
-	vd.Children = append(vd.Children, il)
-
-	// expect COLON(:)
-	err = p.expect("COLON(:)")
+	// ---- Parse first declaration ----
+	decl, err := p.ParseSingleVarDecl()
 	if err != nil {
 		return nil, err
 	}
-	vd.Children = append(vd.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
+	vd.Children = append(vd.Children, decl)
 
-	// expect type
-	t, err := p.ParseType()
-	if err != nil {
-		return (nil), err
+	// ---- Parse additional declarations ----
+	for strings.HasPrefix(p.peek(), "IDENTIFIER") {
+		decl, err := p.ParseSingleVarDecl()
+		if err != nil {
+			return nil, err
+		}
+		vd.Children = append(vd.Children, decl)
 	}
-	vd.Children = append(vd.Children, t)
-
-	// expect semicolon
-	err = p.expect("SEMICOLON(;)")
-	if err != nil {
-		return nil, err
-	}
-	vd.Children = append(vd.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
 	return vd, nil
 }
@@ -361,9 +355,7 @@ func (p *Parser) ParseIdentifierList() (*AbstractSyntaxTree, error) {
 			il.Children = append(il.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
 			// expect IDENTIFIER
-			_, ierr := regexp.MatchString("^IDENTIFIER", p.peek())
-
-			if ierr != nil {
+			if !strings.HasPrefix(p.peek(), "IDENTFIER") {
 				return nil, err
 			}
 
@@ -379,33 +371,90 @@ func (p *Parser) ParseIdentifierList() (*AbstractSyntaxTree, error) {
 
 // "<type>":                    {"KEYWORD(integer)", "IDENTIFIER", "SEMICOLON(;)"},
 func (p *Parser) ParseType() (*AbstractSyntaxTree, error) {
-	// init + create main node
 	t := NewNode("<type>")
-	var err error
 
-	// expect KEYWORD(integer)
-	err = p.expect("KEYWORD(integer)")
-	if err != nil {
-		return nil, err
+	// peek current token
+	token := p.peek()
+
+	//--------------------------------------------------------
+	// CASE 1: Simple primitive type
+	//--------------------------------------------------------
+	if strings.HasPrefix(token, "KEYWORD(integer)") ||
+		strings.HasPrefix(token, "KEYWORD(real)") ||
+		strings.HasPrefix(token, "KEYWORD(boolean)") ||
+		strings.HasPrefix(token, "KEYWORD(char)") {
+
+		// consume keyword
+		if err := p.expect("KEYWORD"); err != nil {
+			return nil, err
+		}
+
+		// Add leaf for type keyword
+		t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		return t, nil
 	}
-	t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect IDENTIFIER
-	err = p.expect("IDENTIFIER")
-	// il, err := p.ParseIdentifierList()
-	if err != nil {
-		return (nil), err
+	//--------------------------------------------------------
+	// CASE 2: Array type
+	//--------------------------------------------------------
+	if strings.HasPrefix(token, "KEYWORD(larik)") {
+
+		// expect "array"
+		if err := p.expect("KEYWORD(larik)"); err != nil {
+			return nil, err
+		}
+		t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+		// expect "["
+		if err := p.expect("LBRACKET([)"); err != nil {
+			return nil, err
+		}
+		t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+		// lower bound: NUMBER
+		if err := p.expect("NUMBER"); err != nil {
+			return nil, err
+		}
+		t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+		// expect ".."
+		if err := p.expect("RANGE(..)"); err != nil {
+			return nil, err
+		}
+		t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+		// upper bound: NUMBER
+		if err := p.expect("NUMBER"); err != nil {
+			return nil, err
+		}
+		t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+		// expect "]"
+		if err := p.expect("RBRACKET(])"); err != nil {
+			return nil, err
+		}
+		t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+		// expect "of"
+		if err := p.expect("KEYWORD(of)"); err != nil {
+			return nil, err
+		}
+		t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+		// array element type: recursive call!
+		elemType, err := p.ParseType()
+		if err != nil {
+			return nil, err
+		}
+		t.Children = append(t.Children, elemType)
+
+		return t, nil
 	}
-	t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect SEMICOLON(;)
-	err = p.expect("SEMICOLON(;)")
-	if err != nil {
-		return nil, err
-	}
-	t.Children = append(t.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
-
-	return t, nil
+	//--------------------------------------------------------
+	// INVALID TYPE
+	//--------------------------------------------------------
+	return nil, fmt.Errorf("expected <type> but got %q at Pos %d", token, p.Pos)
 }
 
 // "<array-type>":              {"KEYWORD(larik)", "LBRACKET([)", "<range>", "RBRACKET(])", "KEYWORD(dari)", "<type>"},
@@ -625,9 +674,10 @@ func (p *Parser) ParseParameterGroup() (*AbstractSyntaxTree, error) {
 			pg.Children = append(pg.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
 			// expect IDENTIFIER
-			_, ierr := regexp.MatchString("^IDENTIFIER", p.peek())
-
-			if ierr != nil {
+			fmt.Println(p.Tokens[p.Pos])
+			fmt.Println(p.Pos)
+			err = p.expect("IDENTFIER")
+			if err != nil {
 				return nil, err
 			}
 
@@ -745,8 +795,7 @@ func (p *Parser) ParseStatement() (*AbstractSyntaxTree, error) {
 
 	// accept const declaration
 	for {
-		_, ierr := regexp.MatchString("^IDENTIFIER", p.peek())
-		if ierr == nil {
+		if strings.HasPrefix(p.peek(), "IDENTFIER") {
 			as, aserr := p.ParseAssignmentStatement()
 			if aserr != nil {
 				return nil, aserr
@@ -1081,8 +1130,8 @@ func (p *Parser) ParseExpression() (*AbstractSyntaxTree, error) {
 
 	// accept (<relational-operator> <simple-expression>)*
 	for {
-		ro, _ := regexp.MatchString("^RELATIONAL_OPERATOR", p.peek())
-		if ro {
+
+		if strings.HasPrefix(p.peek(), "RELATIONAL_OPERATOR") {
 			ro, roerr := p.ParseRelationalOperator()
 			if roerr != nil {
 				return nil, roerr
@@ -1127,8 +1176,7 @@ func (p *Parser) ParseSimpleExpression() (*AbstractSyntaxTree, error) {
 
 	// accept (<additive-operator> <term>)*
 	for {
-		aro, _ := regexp.MatchString("^ARITHMETIC_OPERATOR", p.peek())
-		if aro {
+		if strings.HasPrefix(p.peek(), "ARITHMETIC_OPERATOR") {
 			ado, adoerr := p.ParseAdditiveOperator()
 			if adoerr != nil {
 				return nil, roerr
@@ -1166,8 +1214,7 @@ func (p *Parser) ParseTerm() (*AbstractSyntaxTree, error) {
 
 	// accept (<multiplicative-operator> <factor>)*
 	for {
-		aro, _ := regexp.MatchString("^ARITHMETIC_OPERATOR", p.peek())
-		if aro {
+		if strings.HasPrefix(p.peek(), "ARITHMETIC_OPERATOR") {
 			ado, adoerr := p.ParseAdditiveOperator()
 			if adoerr != nil {
 				return nil, adoerr
@@ -1198,44 +1245,38 @@ func (p *Parser) ParseFactor() (*AbstractSyntaxTree, error) {
 
 	// accept {"(IDENTIFIER | NUMBER | CHAR_LITERAL | STRING_LITERAL | ( LPARENTHESES(() <expression> RPARENTHESES()) ) | LOGICAL_OPERATOR(tidak))"
 	for {
-		i, _ := regexp.MatchString("^IDENTFIER", p.peek())
-		n, _ := regexp.MatchString("^NUMBER", p.peek())
-		cl, _ := regexp.MatchString("^CHAR_LITERAL", p.peek())
-		sl, _ := regexp.MatchString("^STRING_LITERAL", p.peek())
-		lp, _ := regexp.MatchString("^LPARENTHESES(()", p.peek())
-		lo, _ := regexp.MatchString("^LOGICAL_OPERATOR", p.peek())
 
-		if i {
+		if strings.HasPrefix(p.peek(), "IDENTFIER") {
 			ierr := p.expect("IDENTFIER")
 			if ierr != nil {
 				return nil, ierr
 			}
 			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-		} else if n {
+		} else if strings.HasPrefix(p.peek(), "NUMBER") {
 			nerr := p.expect("NUMBER")
 			if nerr != nil {
 				return nil, nerr
 			}
 			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-		} else if cl {
+		} else if strings.HasPrefix(p.peek(), "CHAR_LITERAL") {
 			clerr := p.expect("CHAR_LITERAL")
 			if clerr != nil {
 				return nil, clerr
 			}
 			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-		} else if sl {
+		} else if strings.HasPrefix(p.peek(), "STRING_LITERAL") {
 			slerr := p.expect("STRING_LITERAL")
 			if slerr != nil {
 				return nil, slerr
 			}
 			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-		} else if lp {
+		} else if strings.HasPrefix(p.peek(), "LPARENTHESES(()") {
 			lperr := p.expect("LPARENTHESES(()")
 			if lperr != nil {
 				return nil, lperr
 			}
 			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-		} else if lo {
+		} else if strings.HasPrefix(p.peek(), "LOGICAL_OPERATOR") {
 			loerr := p.expect("LOGICAL_OPERATOR")
 			if loerr != nil {
 				return nil, loerr
@@ -1248,14 +1289,8 @@ func (p *Parser) ParseFactor() (*AbstractSyntaxTree, error) {
 
 	// accept (<factor> <function-declaration>)*
 	for {
-		i, _ := regexp.MatchString("^IDENTFIER", p.peek())
-		n, _ := regexp.MatchString("^NUMBER", p.peek())
-		cl, _ := regexp.MatchString("^CHAR_LITERAL", p.peek())
-		sl, _ := regexp.MatchString("^STRING_LITERAL", p.peek())
-		lp, _ := regexp.MatchString("^LPARENTHESES(()", p.peek())
-		lo, _ := regexp.MatchString("^LOGICAL_OPERATOR", p.peek())
 
-		if i || n || cl || sl || lp || lo {
+		if strings.HasPrefix(p.peek(), "IDENTFIER") || strings.HasPrefix(p.peek(), "NUMBER") || strings.HasPrefix(p.peek(), "CHAR_LITERAL") || strings.HasPrefix(p.peek(), "STRING_LITERAL") || strings.HasPrefix(p.peek(), "LPARENTHESES(()") || strings.HasPrefix(p.peek(), "LOGICAL_OPERATOR") {
 			f, ferr := p.ParseFactor()
 			if ferr != nil {
 				return nil, ferr
@@ -1282,9 +1317,7 @@ func (p *Parser) ParseRelationalOperator() (*AbstractSyntaxTree, error) {
 	ro := NewNode("<relational-operator>")
 
 	for {
-		robool, _ := regexp.MatchString("^RELATIONAL_OPERATOR", p.peek())
-
-		if robool {
+		if strings.HasPrefix(p.peek(), "RELATIONAL_OPERATOR") {
 			roerr := p.expect("RELATIONAL_OPERATOR")
 			if roerr != nil {
 				return nil, roerr
@@ -1303,9 +1336,8 @@ func (p *Parser) ParseAdditiveOperator() (*AbstractSyntaxTree, error) {
 	ao := NewNode("<additive-operator>")
 
 	for {
-		aobool, _ := regexp.MatchString("^ARITHMETIC_OPERATOR", p.peek())
 
-		if aobool {
+		if strings.HasPrefix(p.peek(), "ARITHMETIC_OPERATOR") {
 			roerr := p.expect("ARITHMETIC_OPERATOR")
 			if roerr != nil {
 				return nil, roerr
@@ -1324,9 +1356,8 @@ func (p *Parser) ParseMultiplicativeOperator() (*AbstractSyntaxTree, error) {
 	mo := NewNode("<multiplicative-operator>")
 
 	for {
-		aobool, _ := regexp.MatchString("^ARITHMETIC_OPERATOR", p.peek())
 
-		if aobool {
+		if strings.HasPrefix(p.peek(), "ARITHMETIC_OPERATOR") {
 			roerr := p.expect("ARITHMETIC_OPERATOR")
 			if roerr != nil {
 				return nil, roerr
