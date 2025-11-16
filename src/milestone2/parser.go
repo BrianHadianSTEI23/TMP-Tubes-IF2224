@@ -50,7 +50,7 @@ func (p *Parser) next() string {
 	return t
 }
 func (p *Parser) accept(tok string) bool {
-	m, _ := regexp.MatchString(`^`+tok, tok)
+	m, _ := regexp.MatchString(`^`+tok, p.peek())
 	if m {
 		p.next()
 		return true
@@ -58,7 +58,7 @@ func (p *Parser) accept(tok string) bool {
 	return false
 }
 func (p *Parser) expect(tok string) error {
-	m, _ := regexp.MatchString(`^`+tok, tok)
+	m, _ := regexp.MatchString(`^`+tok, p.peek())
 	if m {
 		p.next()
 		return nil
@@ -89,6 +89,13 @@ func (p *Parser) ParseProgram() (*AbstractSyntaxTree, error) {
 		return (nil), err
 	}
 	root.Children = append(root.Children, cs)
+
+	// append the program-header if valid
+	derr := p.expect("^DOT(.)")
+	if derr != nil {
+		return (nil), derr
+	}
+	root.Children = append(root.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
 	return root, nil
 }
