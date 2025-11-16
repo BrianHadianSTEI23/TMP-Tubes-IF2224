@@ -227,7 +227,6 @@ func (p *Parser) ParseTypeDeclaration() (*AbstractSyntaxTree, error) {
 	// init + create main node
 	td := NewNode("<type-declaration>")
 	var err error
-	var acceptValue bool
 
 	// expect KEYWORD(tipe)
 	err = p.expect("KEYWORD(tipe)")
@@ -256,19 +255,19 @@ func (p *Parser) ParseTypeDeclaration() (*AbstractSyntaxTree, error) {
 		c, cerr := regexp.MatchString("^CHAR_LITERAL", p.peek())
 		s, serr := regexp.MatchString("^STRING_LITERAL", p.peek())
 		if n {
-			acceptValue = p.accept("NUMBER")
+			_ = p.accept("NUMBER")
 			if nerr != nil {
 				return nil, nerr
 			}
 			td.Children = append(td.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
 		} else if c {
-			acceptValue = p.accept("CHAR_LITERAL")
+			_ = p.accept("CHAR_LITERAL")
 			if cerr != nil {
 				return nil, cerr
 			}
 			td.Children = append(td.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1])) // this is minus one because p.expect has incremented the Pos variable
 		} else if s {
-			acceptValue = p.accept("STRING_LITERAL")
+			_ = p.accept("STRING_LITERAL")
 			if serr != nil {
 				return nil, serr
 			}
@@ -487,7 +486,6 @@ func (p *Parser) ParseRange() (*AbstractSyntaxTree, error) {
 func (p *Parser) ParseSubprogramDeclaration() (*AbstractSyntaxTree, error) {
 	// init + create main node
 	sd := NewNode("<subprogram-declaration>")
-	var err error
 
 	for {
 		if p.peek() == "KEYWORD(prosedur)" {
@@ -509,14 +507,14 @@ func (p *Parser) ParseSubprogramDeclaration() (*AbstractSyntaxTree, error) {
 	return sd, nil
 }
 
-// "<function-declaration>":    {"KEYWORD(function)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
+// "<function-declaration>":    {"KEYWORD(fungsi)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
 func (p *Parser) ParseFunctionDeclaration() (*AbstractSyntaxTree, error) {
 	// init + create main node
 	fd := NewNode("<function-declaration>")
 	var err error
 
 	// expect KEYWORD(function)
-	err = p.expect("KEYWORD(function)")
+	err = p.expect("KEYWORD(fungsi)")
 	if err != nil {
 		return nil, err
 	}
@@ -731,716 +729,602 @@ func (p *Parser) ParseCompoundStatement() (*AbstractSyntaxTree, error) {
 }
 
 // /////////////////////////////////////////////////// INI KEBAWAH BELUM DIBENERIN /////////////////////////
+//
+//	"<statement>":               {"<assignment-statement>*", "<if-statement>*", "<while-statement>*", "<for-statement>*"},
 func (p *Parser) ParseStatement() (*AbstractSyntaxTree, error) {
-	// init + create main node
-	at := NewNode("<array-type>")
-	var err error
+	// init
+	s := NewNode("<statement>")
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	// accept const declaration
+	for {
+		_, ierr := regexp.MatchString("^IDENTIFIER", p.peek())
+		if ierr == nil {
+			as, aserr := p.ParseAssignmentStatement()
+			if aserr != nil {
+				return nil, aserr
+			}
+			s.Children = append(s.Children, as)
+			continue
+		}
+
+		if p.peek() == "KEYWORD(jika)" {
+			is, err := p.ParseIfStatement()
+			if err != nil {
+				return nil, err
+			}
+			s.Children = append(s.Children, is)
+			continue
+		}
+
+		if p.peek() == "KEYWORD(selama)" {
+			ws, err := p.ParseWhileStatement()
+			if err != nil {
+				return nil, err
+			}
+			s.Children = append(s.Children, ws)
+			continue
+		}
+
+		if p.peek() == "KEYWORD(untuk)" {
+			ws, err := p.ParseWhileStatement()
+			if err != nil {
+				return nil, err
+			}
+			s.Children = append(s.Children, ws)
+			continue
+		}
+
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return s, nil
 }
 
+// "<statement-list>":          {"<statement>", "(SEMICOLON(;) <statement>)*"},
 func (p *Parser) ParseStatementList() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
+	sl := NewNode("<statement-list>")
 	var err error
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	// expect <statement>
+	s, serr := p.ParseStatement()
+	if serr != nil {
+		return nil, serr
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	sl.Children = append(sl.Children, s)
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
+	// accept (SEMICOLON(;) <statement>)*
+	for {
+		if p.peek() == "SEMICOLON(;)" {
+			err = p.expect("SEMICOLON(;)")
+			if err != nil {
+				return nil, err
+			}
+			sl.Children = append(sl.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+			// expect <staement>
+			s, serr := p.ParseStatement()
+
+			if serr != nil {
+				return nil, serr
+			}
+
+			sl.Children = append(sl.Children, s)
+			continue
+		}
+
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return sl, nil
 }
 
+// "<assignment-statement>":    {"IDENTIFIER", "ASSIGN-OPERATOR(:=)", "<expression>"},
 func (p *Parser) ParseAssignmentStatement() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
+	as := NewNode("<assignment-statement>")
 	var err error
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
+	// expect IDENTIFIER
+	err = p.expect("IDENTFIER")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	as.Children = append(as.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
+	// expect ASSIGN_OPERATOR(:=)
+	err = p.expect("ASSIGN_OPERATOR(:=)")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	as.Children = append(as.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
+	// expect <expression>
+	e, eerr := p.ParseExpression()
+	if eerr != nil {
+		return (nil), eerr
 	}
-	at.Children = append(at.Children, r)
+	as.Children = append(as.Children, e)
 
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return as, nil
 }
 
+// "<if-statement>":            {"KEYWORD(jika)", "<expression>", "KEYWORD(maka)", "<statement>", "(KEYWORD(selain-itu) <statement>)*"},
 func (p *Parser) ParseIfStatement() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
+	is := NewNode("<if-statement>")
 	var err error
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
+	// expect KEYWORD(jika)
+	err = p.expect("KEYWORD(jika)")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	is.Children = append(is.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
+	// expect <expresison>
+	e, eerr := p.ParseExpression()
+	if eerr != nil {
+		return (nil), eerr
+	}
+	is.Children = append(is.Children, e)
+
+	// expect KEYWORD(maka)
+	err = p.expect("KEYWORD(maka)")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	is.Children = append(is.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
+	// expect <statement>
+	s, serr := p.ParseStatement()
+	if serr != nil {
+		return (nil), serr
 	}
-	at.Children = append(at.Children, r)
+	is.Children = append(is.Children, s)
 
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
+	// accept (SEMICOLON(;) <statement>)*
+	for {
+		if p.peek() == "SEMICOLON(;)" {
+			err = p.expect("SEMICOLON(;)")
+			if err != nil {
+				return nil, err
+			}
+			is.Children = append(is.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+			// expect <staement>
+			s, serr := p.ParseStatement()
+
+			if serr != nil {
+				return nil, serr
+			}
+
+			is.Children = append(is.Children, s)
+			continue
+		}
+
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return is, nil
 }
 
+// "<while-statement>":         {"KEYWORD(selama)", "<expression>", "KEYWORD(lakukan)", "<statement>"},
 func (p *Parser) ParseWhileStatement() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
+	ws := NewNode("<while-statement>")
 	var err error
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
+	// expect KEYWORD(selama)
+	err = p.expect("KEYWORD(selama)")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	ws.Children = append(ws.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
+	// expect <expression>
+	e, eerr := p.ParseExpression()
+	if eerr != nil {
+		return (nil), eerr
+	}
+	ws.Children = append(ws.Children, e)
+
+	// expect KEYWORD(lakukan)
+	err = p.expect("KEYWORD(lakukan)")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	ws.Children = append(ws.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
+	// expect <statement>
+	s, serr := p.ParseStatement()
+	if serr != nil {
+		return (nil), serr
 	}
-	at.Children = append(at.Children, r)
+	ws.Children = append(ws.Children, s)
 
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return ws, nil
 }
 
+// "<for-statement>":           {"KEYWORD(untuk)", "IDENTIFIER", "ASSIGN_OPERATOR(:=)", "<expression>", "(KEYWORD(ke) | KEYWORD(turun-ke))", "<expression>", "KEYWORD(lakukan)", "<statement>"},
 func (p *Parser) ParseForStatement() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
+	fs := NewNode("<for-statement>")
 	var err error
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
+	// expect KEYWORD(untuk)
+	err = p.expect("KEYWORD(untuk)")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	fs.Children = append(fs.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
+	// expect IDENTIFIER
+	err = p.expect("IDENTIFIER")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	fs.Children = append(fs.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
+	// expect ASSIGN_OPERATOR(:=)
+	err = p.expect("ASSIGN_OPERATOR(:=)")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	fs.Children = append(fs.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
+	// expect <expresison>
+	e, eerr := p.ParseExpression()
+	if eerr != nil {
+		return (nil), eerr
+	}
+	fs.Children = append(fs.Children, e)
+
+	// accept (KEYWORD(ke) | KEYWORD(turun-ke))*
+	for {
+		if p.peek() == "KEYWORD(ke)" {
+			err = p.expect("KEYWORD(ke)")
+			if err != nil {
+				return nil, err
+			}
+			fs.Children = append(fs.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		} else if p.peek() == "KEYWORD(turun-ke)" {
+			err = p.expect("KEYWORD(turun-ke)")
+			if err != nil {
+				return nil, err
+			}
+			fs.Children = append(fs.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		}
+		break
+	}
+
+	// expect <expression>
+	e, eerr = p.ParseExpression()
+	if eerr != nil {
+		return (nil), eerr
+	}
+	fs.Children = append(fs.Children, e)
+
+	// expect KEYWORD(lakukan)
+	err = p.expect("KEYWORD(lakukan)")
 	if err != nil {
 		return nil, err
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	fs.Children = append(fs.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
+	// expect <statement>
+	s, serr := p.ParseStatement()
+	if serr != nil {
+		return (nil), serr
 	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
+	fs.Children = append(fs.Children, s)
 
-	return at, nil
+	return fs, nil
 }
 
+// "<parameter-list>":          {"<expression>", "(COMMA(,) <expression)*"},
 func (p *Parser) ParseParameterList() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
+	pl := NewNode("<parameter-list>")
 	var err error
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	// expect <expression>
+	e, eerr := p.ParseExpression()
+	if eerr != nil {
+		return (nil), eerr
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	pl.Children = append(pl.Children, e)
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
+	// accept (COMMA(;) <expression>)*
+	for {
+		if p.peek() == "COLON(:)" {
+			err = p.expect("COLON(;)")
+			if err != nil {
+				return nil, err
+			}
+			pl.Children = append(pl.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+
+			// expect <expression>
+			s, serr := p.ParseExpression()
+
+			if serr != nil {
+				return nil, serr
+			}
+
+			pl.Children = append(pl.Children, s)
+			continue
+		}
+
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return pl, nil
 }
 
+// "<expression>":              {"<simple-expression>", "(<relational-operator> <simple-expression>)*"},
 func (p *Parser) ParseExpression() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
-	var err error
+	e := NewNode("<expression>")
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	// expect <simple-expression>
+	se, seerr := p.ParseSimpleExpression()
+	if seerr != nil {
+		return nil, seerr
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	e.Children = append(e.Children, se)
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
+	// accept (<relational-operator> <simple-expression>)*
+	for {
+		ro, _ := regexp.MatchString("^RELATIONAL_OPERATOR", p.peek())
+		if ro {
+			ro, roerr := p.ParseRelationalOperator()
+			if roerr != nil {
+				return nil, roerr
+			}
+			e.Children = append(e.Children, ro)
+
+			// expect <simple-expression>
+			se, seerr = p.ParseSimpleExpression()
+
+			if seerr != nil {
+				return nil, seerr
+			}
+
+			e.Children = append(e.Children, se)
+			continue
+		}
+
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return e, nil
 }
 
+// "<simple-expression>":       {"(ARITHMETIC_OPERATOR(+) | ARITHMETIC_OPERATOR(-))*", "<term>", "(<additive-operator> <term>)*"}
 func (p *Parser) ParseSimpleExpression() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
-	var err error
+	se := NewNode("<simple-expression>")
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	// accept (ARITHMETIC_OPERATOR(+) | ARITHMETIC_OPERATOR(-))*
+	ro, roerr := p.ParseRelationalOperator()
+	if roerr != nil {
+		return nil, roerr
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	se.Children = append(se.Children, ro)
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
+	// expect <term>
+	t, terr := p.ParseTerm()
 	if terr != nil {
 		return nil, terr
 	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
+	se.Children = append(se.Children, t)
 
-	return at, nil
+	// accept (<additive-operator> <term>)*
+	for {
+		aro, _ := regexp.MatchString("^ARITHMETIC_OPERATOR", p.peek())
+		if aro {
+			ado, adoerr := p.ParseAdditiveOperator()
+			if adoerr != nil {
+				return nil, roerr
+			}
+			se.Children = append(se.Children, ado)
+
+			// expect <term>
+			t, terr = p.ParseTerm()
+
+			if terr != nil {
+				return nil, terr
+			}
+
+			t.Children = append(t.Children, se)
+			continue
+		}
+
+		break
+	}
+
+	return se, nil
 }
 
+// "<term>":                    {"<factor>", "(<multiplicative-operator> <factor>)*"},
 func (p *Parser) ParseTerm() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
-	var err error
+	t := NewNode("<term>")
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	// expect <factor>
+	f, ferr := p.ParseFactor()
+	if ferr != nil {
+		return nil, ferr
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+	t.Children = append(t.Children, f)
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
+	// accept (<multiplicative-operator> <factor>)*
+	for {
+		aro, _ := regexp.MatchString("^ARITHMETIC_OPERATOR", p.peek())
+		if aro {
+			ado, adoerr := p.ParseAdditiveOperator()
+			if adoerr != nil {
+				return nil, adoerr
+			}
+			t.Children = append(t.Children, ado)
+
+			// expect <factor>
+			f, ferr = p.ParseFactor()
+
+			if ferr != nil {
+				return nil, ferr
+			}
+
+			t.Children = append(t.Children, f)
+			continue
+		}
+
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return t, nil
 }
 
+// "<factor>":                  {"(IDENTIFIER | NUMBER | CHAR_LITERAL | STRING_LITERAL | ( LPARENTHESES(() <expression> RPARENTHESES()) ) | LOGICAL_OPERATOR(tidak))", "(<factor> | <function-declaration>)"},
 func (p *Parser) ParseFactor() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
-	var err error
+	f := NewNode("<factor>")
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	// accept {"(IDENTIFIER | NUMBER | CHAR_LITERAL | STRING_LITERAL | ( LPARENTHESES(() <expression> RPARENTHESES()) ) | LOGICAL_OPERATOR(tidak))"
+	for {
+		i, _ := regexp.MatchString("^IDENTFIER", p.peek())
+		n, _ := regexp.MatchString("^NUMBER", p.peek())
+		cl, _ := regexp.MatchString("^CHAR_LITERAL", p.peek())
+		sl, _ := regexp.MatchString("^STRING_LITERAL", p.peek())
+		lp, _ := regexp.MatchString("^LPARENTHESES(()", p.peek())
+		lo, _ := regexp.MatchString("^LOGICAL_OPERATOR", p.peek())
+
+		if i {
+			ierr := p.expect("IDENTFIER")
+			if ierr != nil {
+				return nil, ierr
+			}
+			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		} else if n {
+			nerr := p.expect("NUMBER")
+			if nerr != nil {
+				return nil, nerr
+			}
+			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		} else if cl {
+			clerr := p.expect("CHAR_LITERAL")
+			if clerr != nil {
+				return nil, clerr
+			}
+			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		} else if sl {
+			slerr := p.expect("STRING_LITERAL")
+			if slerr != nil {
+				return nil, slerr
+			}
+			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		} else if lp {
+			lperr := p.expect("LPARENTHESES(()")
+			if lperr != nil {
+				return nil, lperr
+			}
+			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		} else if lo {
+			loerr := p.expect("LOGICAL_OPERATOR")
+			if loerr != nil {
+				return nil, loerr
+			}
+			f.Children = append(f.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		}
+
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
+	// accept (<factor> <function-declaration>)*
+	for {
+		i, _ := regexp.MatchString("^IDENTFIER", p.peek())
+		n, _ := regexp.MatchString("^NUMBER", p.peek())
+		cl, _ := regexp.MatchString("^CHAR_LITERAL", p.peek())
+		sl, _ := regexp.MatchString("^STRING_LITERAL", p.peek())
+		lp, _ := regexp.MatchString("^LPARENTHESES(()", p.peek())
+		lo, _ := regexp.MatchString("^LOGICAL_OPERATOR", p.peek())
+
+		if i || n || cl || sl || lp || lo {
+			f, ferr := p.ParseFactor()
+			if ferr != nil {
+				return nil, ferr
+			}
+			f.Children = append(f.Children, f)
+			continue
+		} else if p.peek() == "KEYWORD(fungsi)" {
+			fd, fderr := p.ParseFunctionDeclaration()
+			if fderr != nil {
+				return nil, fderr
+			}
+			f.Children = append(f.Children, fd)
+			continue
+		}
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return f, nil
 }
 
+// "<relational-operator>":     {"= | > | < | >= | <= | <>"},
 func (p *Parser) ParseRelationalOperator() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
-	var err error
+	ro := NewNode("<relational-operator>")
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	for {
+		robool, _ := regexp.MatchString("^RELATIONAL_OPERATOR", p.peek())
+
+		if robool {
+			roerr := p.expect("RELATIONAL_OPERATOR")
+			if roerr != nil {
+				return nil, roerr
+			}
+			ro.Children = append(ro.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		}
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return ro, nil
 }
 
 func (p *Parser) ParseAdditiveOperator() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
-	var err error
+	ao := NewNode("<additive-operator>")
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	for {
+		aobool, _ := regexp.MatchString("^ARITHMETIC_OPERATOR", p.peek())
+
+		if aobool {
+			roerr := p.expect("ARITHMETIC_OPERATOR")
+			if roerr != nil {
+				return nil, roerr
+			}
+			ao.Children = append(ao.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		}
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return ao, nil
 }
 
 func (p *Parser) ParseMultiplicativeOperator() (*AbstractSyntaxTree, error) {
 	// init + create main node
-	at := NewNode("<array-type>")
-	var err error
+	mo := NewNode("<multiplicative-operator>")
 
-	// expect KEYWORD(larik)
-	err = p.expect("KEYWORD(larik)")
-	if err != nil {
-		return nil, err
+	for {
+		aobool, _ := regexp.MatchString("^ARITHMETIC_OPERATOR", p.peek())
+
+		if aobool {
+			roerr := p.expect("ARITHMETIC_OPERATOR")
+			if roerr != nil {
+				return nil, roerr
+			}
+			mo.Children = append(mo.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
+		}
+		break
 	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
 
-	// expect LBRACKET([)
-	err = p.expect("LBRACKET([)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <range>
-	r, err := p.ParseRange()
-	if err != nil {
-		return (nil), err
-	}
-	at.Children = append(at.Children, r)
-
-	// expect RBRACKET(])
-	err = p.expect("RBRACKET(])")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect KEYWORD(dari)
-	err = p.expect("KEYWORD(dari)")
-	if err != nil {
-		return nil, err
-	}
-	at.Children = append(at.Children, NewLeaf(p.Tokens[p.Pos-1], p.Tokens[p.Pos-1]))
-
-	// expect <type>
-	t, terr := p.ParseType()
-	// N(:)")
-	if terr != nil {
-		return nil, terr
-	}
-	at.Children = append(at.Children, t) // this is minus one because p.expect has incremented the Pos variable
-
-	return at, nil
+	return mo, nil
 }

@@ -33,7 +33,7 @@ var productionRule = map[string][]string{
 	"<range>":                   {"<expression>", "RANGE_OPERATOR(..)", "<expression>"},
 	"<subprogram-declaration>":  {"<procedure-declaration>", "<function-declaration>"},
 	"<procedure-declaration>":   {"KEYWORD(prosedur)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
-	"<function-declaration>":    {"KEYWORD(function)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
+	"<function-declaration>":    {"KEYWORD(fungsi)", "IDENTIFIER", "(formal-parameter-list)*", "SEMICOLON(;)"},
 	"<formal-parameter-list>":   {"LPARENTHESES(()", "<parameter-group>", "(SEMICOLON(;) <parameter-group>)*", "RPARENTHESES())"},
 	"<compound-statement>":      {"KEYWORD(mulai)", "<statement-list>", "KEYWORD(selesai)"},
 	"<statement>":               {"<assignment-statement>*", "<if-statement>*", "<while-statement>*", "<for-statement>*"},
