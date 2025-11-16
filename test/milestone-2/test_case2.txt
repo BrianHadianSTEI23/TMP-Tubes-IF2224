@@ -1,0 +1,18 @@
+
+program LoopTest;
+
+variabel
+  count: integer
+  done: boolean;
+
+mulai
+  count := 0;
+  done := false;
+  selama tidak done lakukan
+  mulai
+    count := count + 1;
+    jika count >= 5 maka
+      done := true;
+  selesai;
+selesai.
+
