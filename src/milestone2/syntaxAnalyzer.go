@@ -38,7 +38,7 @@ func SyntaxAnalyzer(lexResult []string, rootNode *AbstractSyntaxTree) int {
 	}
 
 	// 3. Mulai Parsing
-	parsedNode, err := p.ParseProgram()
+	parsedNode, err := p.ParseProgram() 
 
 	if err != nil {
 		fmt.Printf("\n[Syntax Error] %v\n", err)
