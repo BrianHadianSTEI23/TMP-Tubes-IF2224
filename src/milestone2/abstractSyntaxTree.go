@@ -1,30 +1,36 @@
 package milestone2
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
+// Struktur Node Tree
 type AbstractSyntaxTree struct {
-	TerminalValue    string
-	NonTerminalValue string
-	Children         []*AbstractSyntaxTree
+	Value          string
+	ProductionRule []string // (Tidak digunakan di Recursive Descent, tapi dibiarkan agar kompatibel)
+	Children       []*AbstractSyntaxTree
 }
 
-func NewNode(kind string) *AbstractSyntaxTree {
-	return &AbstractSyntaxTree{NonTerminalValue: kind, Children: []*AbstractSyntaxTree{}}
-}
+// Fungsi Print Tree dengan format cantik (seperti command 'tree' di Linux)
+func PrintAbstractSyntaxTree(node *AbstractSyntaxTree, writer io.Writer, prefix string, isLast bool) {
+	// Cetak prefix cabang
+	fmt.Fprint(writer, prefix)
 
-func NewLeaf(kind, token string) *AbstractSyntaxTree {
-	return &AbstractSyntaxTree{NonTerminalValue: kind, TerminalValue: token}
-}
-
-func PrintAbstractSyntaxTree(tree AbstractSyntaxTree) {
-	if len(tree.TerminalValue) == 0 { // there are no terminal value (the node is a non terminal node)
-		fmt.Print(tree.NonTerminalValue)
+	// Tentukan simbol cabang (akhir atau tengah)
+	if isLast {
+		fmt.Fprint(writer, "└── ")
+		prefix += "    "
 	} else {
-		fmt.Print(tree.TerminalValue)
+		fmt.Fprint(writer, "├── ")
+		prefix += "│   "
 	}
-	if len(tree.Children) != 0 {
-		for i := 0; i < len(tree.Children); i++ {
-			PrintAbstractSyntaxTree((*tree.Children[i]))
-		}
+
+	// Cetak nilai node
+	fmt.Fprintln(writer, node.Value)
+
+	// Rekursif ke anak-anak
+	for i, child := range node.Children {
+		PrintAbstractSyntaxTree(child, writer, prefix, i == len(node.Children)-1)
 	}
 }
