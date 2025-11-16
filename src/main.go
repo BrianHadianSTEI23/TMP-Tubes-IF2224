@@ -110,11 +110,12 @@ func main() {
 
 		// 2. SYNTAX ANALYZER
 		// initiate parent node
-		var root = milestone2.AbstractSyntaxTree{
-			Value:          "<program>",
-			ProductionRule: nil,
-			Children:       []*milestone2.AbstractSyntaxTree{},
-		}
+		var root *milestone2.AbstractSyntaxTree
+		// var root = milestone2.AbstractSyntaxTree{
+		// 	NonTerminalValue: "<program>",
+		// 	TerminalValue:    "",
+		// 	Children:         []*milestone2.AbstractSyntaxTree{},
+		// }
 		// read the file again
 		lexResultReference, err := os.ReadFile("../test/output/tokens.txt")
 		if err != nil {
@@ -126,11 +127,15 @@ func main() {
 		lexResult := strings.Split(string(lexResultReference), "\n")
 
 		// input it into syntaxAnalyzer
-		result := milestone2.SyntaxAnalyzer(lexResult, &root)
+		var p = milestone2.Parser{
+			Tokens: lexResult,
+			Pos:    0,
+		}
+		root, err = p.ParseProgram()
 
 		// print the abstract syntax tree into screen (later into txt will be implemented)
-		if result != 1 || result != 2 { // not an error
-			milestone2.PrintAbstractSyntaxTree(root)
+		if err != nil { // not an error
+			milestone2.PrintAbstractSyntaxTree(*root)
 		}
 
 	} else {
