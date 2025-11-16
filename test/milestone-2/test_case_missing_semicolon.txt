@@ -1,7 +1,7 @@
 program LoopTest;
 
 variabel
-  count: integer
+  count: integer;
   done: boolean;
 
 mulai
@@ -13,4 +13,4 @@ mulai
     jika count >= 5 maka
       done := true;
   selesai;
-selesai.
+selesai
