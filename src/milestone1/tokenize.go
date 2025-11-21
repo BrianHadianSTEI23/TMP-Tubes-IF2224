@@ -21,7 +21,7 @@ func Tokenize(token string) string {
 		"lakukan":    true,
 		"untuk":      true,
 		"ke":         true,
-		"turun-ke":   true,
+		"turun_ke":   true,
 		"integer":    true,
 		// "real":     true,
 		"boolean":   true,

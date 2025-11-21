@@ -577,7 +577,7 @@ func (p *Parser) parseWhile() (*AbstractSyntaxTree, error) {
 	return node, nil
 }
 
-// <for-statement> -> untuk ID := expr (ke|turun-ke) expr lakukan stmt
+// <for-statement> -> untuk ID := expr (ke|turun_ke) expr lakukan stmt
 func (p *Parser) parseForStatement() (*AbstractSyntaxTree, error) {
 	node := &AbstractSyntaxTree{Value: "<for-statement>"}
 
@@ -602,12 +602,12 @@ func (p *Parser) parseForStatement() (*AbstractSyntaxTree, error) {
 	}
 	node.Children = append(node.Children, startExpr)
 
-	// (ke | turun-ke)
-	if p.check("KEYWORD", "ke") || p.check("KEYWORD", "turun-ke") {
+	// (ke | turun_ke)
+	if p.check("KEYWORD", "ke") || p.check("KEYWORD", "turun_ke") {
 		dir := p.advance()
 		node.Children = append(node.Children, &AbstractSyntaxTree{Value: dir.String()})
 	} else {
-		return nil, fmt.Errorf("Expected 'ke' or 'turun-ke' in for loop")
+		return nil, fmt.Errorf("Expected 'ke' or 'turun_ke' in for loop")
 	}
 
 	endExpr, err := p.parseExpression()
