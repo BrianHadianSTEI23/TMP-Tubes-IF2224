@@ -1,0 +1,17 @@
+program CekNilai;
+
+variabel
+  n: integer;
+
+mulai
+  n := 75;
+
+  jika n > 80 maka
+    writeln('A')
+  selain-itu
+    jika n > 70 maka
+      writeln('B')
+    selain-itu
+      writeln('C');
+
+selesai.
