@@ -509,7 +509,7 @@ func (p *Parser) parseExprList() (*AbstractSyntaxTree, error) {
 	return node, nil
 }
 
-// <if-statement> -> jika expr maka stmt (selain-itu stmt)?
+// <if-statement> -> jika expr maka stmt (selain_itu stmt)?
 func (p *Parser) parseIf() (*AbstractSyntaxTree, error) {
 	node := &AbstractSyntaxTree{Value: "<if-statement>"}
 
@@ -535,7 +535,7 @@ func (p *Parser) parseIf() (*AbstractSyntaxTree, error) {
 	}
 	node.Children = append(node.Children, stmt)
 
-	if p.check("KEYWORD", "selain-itu") {
+	if p.check("KEYWORD", "selain_itu") {
 		elseKw := p.advance()
 		node.Children = append(node.Children, &AbstractSyntaxTree{Value: elseKw.String()})
 		stmt2, err := p.parseStatement()

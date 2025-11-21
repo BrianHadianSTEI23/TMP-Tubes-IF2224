@@ -16,7 +16,7 @@ func Tokenize(token string) string {
 		"selesai":    true,
 		"jika":       true,
 		"maka":       true,
-		"selain-itu": true,
+		"selain_itu": true,
 		"selama":     true,
 		"lakukan":    true,
 		"untuk":      true,
