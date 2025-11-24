@@ -38,7 +38,7 @@ func Tokenize(token string) string {
 		"sampai":    true,
 		"kasus":     true,
 		"rekaman":   true,
-		"writeln":   true,
+		// "writeln":   true,
 		// "read":      true,
 		// "call":      true,
 	}
