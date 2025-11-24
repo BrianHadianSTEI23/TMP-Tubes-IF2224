@@ -177,7 +177,11 @@ func (p *Parser) parseDeclarationPart() (*AbstractSyntaxTree, error) {
 	}
 	// (Loop untuk 'tipe')
 	for p.check("KEYWORD", "tipe") {
-		// (panggil parseTypeDeclaration() nanti)
+		typeDecl, err := p.parseTypeDeclaration()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, typeDecl)
 	}
 	// (Loop untuk 'variabel')
 	for p.check("KEYWORD", "variabel") {
@@ -189,7 +193,11 @@ func (p *Parser) parseDeclarationPart() (*AbstractSyntaxTree, error) {
 	}
 	// (Loop untuk 'prosedur'/'fungsi')
 	for p.check("KEYWORD", "prosedur") || p.check("KEYWORD", "fungsi") {
-		// (panggil parseSubprogramDeclaration() nanti)
+		subprogDecl, err := p.parseSubprogramDeclaration()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, subprogDecl)
 	}
 	return node, nil
 }
@@ -300,13 +308,14 @@ func (p *Parser) parseIdentifierList() (*AbstractSyntaxTree, error) {
 	return node, nil
 }
 
-// <type> -> integer | boolean | real | char | <array-type>
+// <type> -> integer | boolean | real | char | <array-type> | IDENTIFIER
 func (p *Parser) parseType() (*AbstractSyntaxTree, error) {
 	node := &AbstractSyntaxTree{Value: "<type>"}
 
+	// Built-in types
 	if p.check("KEYWORD", "integer") ||
 		p.check("KEYWORD", "boolean") ||
-		p.check("KEYWORD", "real") ||
+		// p.check("KEYWORD", "real") ||
 		p.check("KEYWORD", "char") {
 
 		t := p.advance()
@@ -314,12 +323,281 @@ func (p *Parser) parseType() (*AbstractSyntaxTree, error) {
 		return node, nil
 	}
 
+	// Array type
 	if p.check("KEYWORD", "larik") {
-		// (Panggil parseArrayType() nanti)
-		return nil, fmt.Errorf("Parser 'larik'/'array' belum diimplementasi")
+		return p.parseArrayType()
+	}
+
+	// User-defined type (IDENTIFIER)
+	if p.checkType("IDENTIFIER") {
+		t := p.advance()
+		node.Children = append(node.Children, &AbstractSyntaxTree{Value: t.String()})
+		return node, nil
 	}
 
 	return nil, fmt.Errorf("Unknown type at line %d", p.peek().Line)
+}
+
+// <type-declaration> -> tipe ( ID = <type> ; )+
+func (p *Parser) parseTypeDeclaration() (*AbstractSyntaxTree, error) {
+	node := &AbstractSyntaxTree{Value: "<type-declaration>"}
+
+	kw, _ := p.consume("KEYWORD", "tipe", "")
+	node.Children = append(node.Children, kw)
+
+	// One or more type definitions
+	for p.checkType("IDENTIFIER") {
+		id, err := p.consumeType("IDENTIFIER", "Expected type name")
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, id)
+
+		eq, err := p.consume("RELATIONAL_OPERATOR", "=", "Expected '=' in type declaration")
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, eq)
+
+		t, err := p.parseType()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, t)
+
+		semi, err := p.consume("SEMICOLON", ";", "Expected ';' after type declaration")
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, semi)
+	}
+	return node, nil
+}
+
+// <array-type> -> larik [ NUMBER .. NUMBER ] dari <type>
+func (p *Parser) parseArrayType() (*AbstractSyntaxTree, error) {
+	node := &AbstractSyntaxTree{Value: "<array-type>"}
+
+	larik, err := p.consume("KEYWORD", "larik", "Expected 'larik'")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, larik)
+
+	lp, err := p.consume("LBRACKET", "[", "Expected '[' after 'larik'")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, lp)
+
+	lower, err := p.consumeType("NUMBER", "Expected lower bound for array")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, lower)
+
+	rangeOp, err := p.consume("RANGE_OPERATOR", "..", "Expected '..' in array range")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, rangeOp)
+
+	upper, err := p.consumeType("NUMBER", "Expected upper bound for array")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, upper)
+
+	rp, err := p.consume("RBRACKET", "]", "Expected ']' after array range")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, rp)
+
+	dari, err := p.consume("KEYWORD", "dari", "Expected 'dari' after array range")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, dari)
+
+	baseType, err := p.parseType()
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, baseType)
+
+	return node, nil
+}
+
+// <variable> or <indexed-variable> -> ID ( [ expr ] )*
+func (p *Parser) parseVariableReference() (*AbstractSyntaxTree, error) {
+	if !p.checkType("IDENTIFIER") {
+		return nil, fmt.Errorf("Expected identifier for variable reference, got %s(%s)", p.peek().Type, p.peek().Value)
+	}
+	node := &AbstractSyntaxTree{Value: "<variable>"}
+
+	name, err := p.consumeType("IDENTIFIER", "Expected variable name")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, name)
+
+	// zero or more indexing
+	for p.check("LBRACKET", "[") {
+		lb, _ := p.consume("LBRACKET", "[", "Expected '['")
+		node.Children = append(node.Children, lb)
+
+		expr, err := p.parseExpression()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, expr)
+
+		rb, err := p.consume("RBRACKET", "]", "Expected ']' after index expression")
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, rb)
+	}
+
+	return node, nil
+}
+
+// <subprogram-declaration> -> (prosedur | fungsi) ID ( params ) (: type)? ; <declaration-part> <compound-statement> ;
+func (p *Parser) parseSubprogramDeclaration() (*AbstractSyntaxTree, error) {
+	node := &AbstractSyntaxTree{Value: "<subprogram-declaration>"}
+
+	// prosedur or fungsi
+	var kw *AbstractSyntaxTree
+	var err error
+	var isFungsi bool
+	if p.check("KEYWORD", "fungsi") {
+		kw, err = p.consume("KEYWORD", "fungsi", "")
+		isFungsi = true
+	} else {
+		kw, err = p.consume("KEYWORD", "prosedur", "")
+		isFungsi = false
+	}
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, kw)
+
+	// function/procedure name
+	name, err := p.consumeType("IDENTIFIER", "Expected subprogram name")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, name)
+
+	// parameters
+	lp, err := p.consume("LPARENTHESIS", "(", "Expected '(' for parameters")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, lp)
+
+	// parse parameter list if not empty
+	if !p.check("RPARENTHESIS", ")") {
+		params, err := p.parseParameterList()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, params)
+	}
+
+	rp, err := p.consume("RPARENTHESIS", ")", "Expected ')' after parameters")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, rp)
+
+	// return type for fungsi
+	if isFungsi {
+		colon, err := p.consume("COLON", ":", "Expected ':' before return type")
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, colon)
+
+		retType, err := p.parseType()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, retType)
+	}
+
+	semi1, err := p.consume("SEMICOLON", ";", "Expected ';' after subprogram header")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, semi1)
+
+	// compound statement (body)
+	body, err := p.parseCompoundStatement()
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, body)
+
+	semi2, err := p.consume("SEMICOLON", ";", "Expected ';' after subprogram body")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, semi2)
+
+	return node, nil
+}
+
+// <parameter-list> -> param-group (; param-group)*
+// <param-group> -> identifier-list : type
+func (p *Parser) parseParameterList() (*AbstractSyntaxTree, error) {
+	node := &AbstractSyntaxTree{Value: "<parameter-list>"}
+
+	// first parameter group
+	idList, err := p.parseIdentifierList()
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, idList)
+
+	colon, err := p.consume("COLON", ":", "Expected ':' in parameter")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, colon)
+
+	typ, err := p.parseType()
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, typ)
+
+	// additional parameter groups separated by ;
+	for p.check("SEMICOLON", ";") {
+		semi := p.advance()
+		node.Children = append(node.Children, &AbstractSyntaxTree{Value: semi.String()})
+
+		idList2, err := p.parseIdentifierList()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, idList2)
+
+		colon2, err := p.consume("COLON", ":", "Expected ':' in parameter")
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, colon2)
+
+		typ2, err := p.parseType()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, typ2)
+	}
+
+	return node, nil
 }
 
 // <compound-statement> -> mulai <statement-list> selesai
@@ -384,14 +662,20 @@ func (p *Parser) parseStatementList() (*AbstractSyntaxTree, error) {
 
 // Router untuk statement
 func (p *Parser) parseStatement() (*AbstractSyntaxTree, error) {
-	// 1. Assignment (ID := ...)
-	if p.checkType("IDENTIFIER") && p.tokens[p.current+1].Type == "ASSIGN_OPERATOR" {
-		return p.parseAssignment()
-	}
-
-	// 2. Procedure Call (ID (...) )
-	if p.checkType("IDENTIFIER") && p.tokens[p.current+1].Value == "(" {
-		return p.parseProcedureCall()
+	// 1. Assignment (ID := ... or ID[...] := ...)
+	// Check if it's an identifier followed by either := or [
+	if p.checkType("IDENTIFIER") {
+		// Lookahead to determine if it's assignment or procedure call
+		nextToken := p.tokens[p.current+1]
+		if nextToken.Type == "ASSIGN_OPERATOR" || nextToken.Value == "[" {
+			return p.parseAssignment()
+		}
+		// 2. Procedure Call (ID (...) )
+		if nextToken.Value == "(" {
+			return p.parseProcedureCall()
+		}
+		// If identifier alone (e.g. empty statement or error)
+		return nil, fmt.Errorf("Unexpected identifier in statement: %s", p.peek().Value)
 	}
 
 	// 3. If (jika)
@@ -431,8 +715,12 @@ func (p *Parser) parseStatement() (*AbstractSyntaxTree, error) {
 func (p *Parser) parseAssignment() (*AbstractSyntaxTree, error) {
 	node := &AbstractSyntaxTree{Value: "<assignment-statement>"}
 
-	id, _ := p.consumeType("IDENTIFIER", "Expected ID")
-	node.Children = append(node.Children, id)
+	// left side can be variable or indexed variable
+	left, err := p.parseVariableReference()
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, left)
 
 	assign, _ := p.consume("ASSIGN_OPERATOR", ":=", "Expected :=")
 	node.Children = append(node.Children, assign)
@@ -728,12 +1016,15 @@ func (p *Parser) parseFactor() (*AbstractSyntaxTree, error) {
 			}
 			node.Children = append(node.Children, funcCall)
 			return node, nil
-		} else {
-			// Ini cuma ID (variabel)
-			t := p.advance()
-			node.Children = append(node.Children, &AbstractSyntaxTree{Value: t.String()})
-			return node, nil
 		}
+
+		// variable or indexed variable
+		varRef, err := p.parseVariableReference()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, varRef)
+		return node, nil
 	}
 
 	// ( <expression> )
