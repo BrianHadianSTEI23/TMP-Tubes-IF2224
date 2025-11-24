@@ -666,13 +666,15 @@ func (p *Parser) parseStatement() (*AbstractSyntaxTree, error) {
 	// Check if it's an identifier followed by either := or [
 	if p.checkType("IDENTIFIER") {
 		// Lookahead to determine if it's assignment or procedure call
-		nextToken := p.tokens[p.current+1]
-		if nextToken.Type == "ASSIGN_OPERATOR" || nextToken.Value == "[" {
-			return p.parseAssignment()
-		}
-		// 2. Procedure Call (ID (...) )
-		if nextToken.Value == "(" {
-			return p.parseProcedureCall()
+		if p.current+1 < len(p.tokens) {
+			nextToken := p.tokens[p.current+1]
+			if nextToken.Type == "ASSIGN_OPERATOR" || nextToken.Value == "[" {
+				return p.parseAssignment()
+			}
+			// 2. Procedure Call (ID (...) )
+			if nextToken.Value == "(" {
+				return p.parseProcedureCall()
+			}
 		}
 		// If identifier alone (e.g. empty statement or error)
 		return nil, fmt.Errorf("Unexpected identifier in statement: %s", p.peek().Value)
