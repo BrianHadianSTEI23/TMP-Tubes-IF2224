@@ -533,6 +533,12 @@ func (p *Parser) parseSubprogramDeclaration() (*AbstractSyntaxTree, error) {
 	}
 	node.Children = append(node.Children, semi1)
 
+	declPart, err := p.parseDeclarationPart()
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, declPart)
+
 	// compound statement (body)
 	body, err := p.parseCompoundStatement()
 	if err != nil {
