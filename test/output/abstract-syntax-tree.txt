@@ -1,1 +1,60 @@
-Syntax error found.
+└── <program>
+    ├── <program-header>
+    │   ├── KEYWORD(program)
+    │   ├── IDENTIFIER(Hello)
+    │   └── SEMICOLON(;)
+    ├── <declaration-part>
+    │   └── <var-declaration>
+    │       ├── KEYWORD(variabel)
+    │       ├── <identifier-list>
+    │       │   ├── IDENTIFIER(a)
+    │       │   ├── COMMA(,)
+    │       │   └── IDENTIFIER(b)
+    │       ├── COLON(:)
+    │       ├── <type>
+    │       │   └── KEYWORD(integer)
+    │       └── SEMICOLON(;)
+    ├── <compound-statement>
+    │   ├── KEYWORD(mulai)
+    │   ├── <statement-list>
+    │   │   ├── <assignment-statement>
+    │   │   │   ├── IDENTIFIER(a)
+    │   │   │   ├── ASSIGN_OPERATOR(:=)
+    │   │   │   └── <expression>
+    │   │   │       └── <simple-expression>
+    │   │   │           └── <term>
+    │   │   │               └── <factor>
+    │   │   │                   └── NUMBER(5)
+    │   │   ├── SEMICOLON(;)
+    │   │   ├── <assignment-statement>
+    │   │   │   ├── IDENTIFIER(b)
+    │   │   │   ├── ASSIGN_OPERATOR(:=)
+    │   │   │   └── <expression>
+    │   │   │       └── <simple-expression>
+    │   │   │           ├── <term>
+    │   │   │           │   └── <factor>
+    │   │   │           │       └── IDENTIFIER(a)
+    │   │   │           ├── ARITHMETIC_OPERATOR(+)
+    │   │   │           └── <term>
+    │   │   │               └── <factor>
+    │   │   │                   └── NUMBER(10)
+    │   │   ├── SEMICOLON(;)
+    │   │   ├── <procedure-call>
+    │   │   │   ├── KEYWORD(writeln)
+    │   │   │   ├── LPARENTHESIS(()
+    │   │   │   ├── <parameter-list>
+    │   │   │   │   ├── <expression>
+    │   │   │   │   │   └── <simple-expression>
+    │   │   │   │   │       └── <term>
+    │   │   │   │   │           └── <factor>
+    │   │   │   │   │               └── STRING_LITERAL('Result = ')
+    │   │   │   │   ├── COMMA(,)
+    │   │   │   │   └── <expression>
+    │   │   │   │       └── <simple-expression>
+    │   │   │   │           └── <term>
+    │   │   │   │               └── <factor>
+    │   │   │   │                   └── IDENTIFIER(b)
+    │   │   │   └── RPARENTHESIS())
+    │   │   └── SEMICOLON(;)
+    │   └── KEYWORD(selesai)
+    └── DOT(.)

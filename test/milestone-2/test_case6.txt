@@ -1,0 +1,19 @@
+program MatrixFunc;
+
+tipe
+  Mat4 = larik[1..4] dari larik[1..4] dari integer;
+
+variabel
+  M: Mat4;
+
+fungsi ambilNilai(a: integer; b: integer): integer;
+mulai
+  ambilNilai := M[a][b];
+selesai;
+
+mulai
+  M[1][1] := 77;
+  M[2][2] := 33;
+
+  writeln('Nilai = ', ambilNilai(1, 1));
+selesai.

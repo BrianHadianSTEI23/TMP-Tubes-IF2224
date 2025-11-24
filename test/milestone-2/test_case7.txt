@@ -1,0 +1,19 @@
+program TestLocalVar;
+
+variabel
+  x: integer;
+
+fungsi hitung(a: integer; b: integer): integer;
+variabel
+  hasil: integer;
+  temp: integer;
+mulai
+  hasil := a + b;
+  temp := hasil * 2;
+  hitung := temp
+selesai;
+
+mulai
+  x := hitung(5, 10);
+  writeln(x)
+selesai.

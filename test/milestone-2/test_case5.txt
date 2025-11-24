@@ -8,10 +8,10 @@ mulai
 
   jika n > 80 maka
     writeln('A')
-  selain-itu
+  selain_itu
     jika n > 70 maka
       writeln('B')
-    selain-itu
+    selain_itu
       writeln('C');
 
 selesai.
