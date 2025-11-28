@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compiler/milestone1"
 	"compiler/milestone2"
+	"compiler/milestone3"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +20,7 @@ func main() {
 		}
 	}()
 
-	// Cek argumen input (harus ada file DFA dan Source Code)
+	// Cek argumen input
 	if len(os.Args) < 3 {
 		fmt.Printf("Cara pakai: go run ./src <file_dfa.txt> <file_program.txt>\n")
 		return
@@ -28,7 +29,7 @@ func main() {
 	dfa_file := os.Args[1]
 	srcFile := os.Args[2]
 
-	// --- 1. LOAD DFA ---
+	// 1. LOAD DFA
 	dfaReference, err := os.Open(dfa_file)
 	if err != nil {
 		fmt.Printf("ERROR: error opening DFA file: %v\n", err)
@@ -70,7 +71,7 @@ func main() {
 		}
 	}
 
-	// --- 2. LEXICAL ANALYZER (M1) ---
+	// 2. LEXICAL ANALYZER
 	currentState := dfa.StartState
 	srcReference, err := os.Open(srcFile)
 	if err != nil {
@@ -93,22 +94,21 @@ func main() {
 	// Jalankan Lexer baris per baris
 	for srcScanner.Scan() {
 		line := srcScanner.Text()
-		// Panggil Lexer M1 (menggunakan parameter standar M1 kamu)
+		// Panggil Lexer
 		milestone1.LexicalAnalyzer(line, *dfa, &currentState, tokenWriter)
 	}
 
-	// PENTING: Flush dan Close agar data tertulis sebelum dibaca M2
 	tokenWriter.Flush()
 	tokenReference.Close()
 
-	// --- 3. SYNTAX ANALYZER (M2) ---
+	// 3. SYNTAX ANALYZER
 	// Inisialisasi root node untuk tree
 	var root = milestone2.AbstractSyntaxTree{
 		Value:    "<program>",
 		Children: []*milestone2.AbstractSyntaxTree{},
 	}
 
-	// Tentukan path file tokens.txt secara absolut (biar aman)
+	// Tentukan path file tokens.txt secara absolut
 	_, filename, _, _ := runtime.Caller(0)
 	base := filepath.Dir(filename)
 	path := filepath.Join(base, "..", "test", "output", "tokens.txt")
@@ -146,18 +146,74 @@ func main() {
 	defer treeReference.Close()
 	treeWriter := bufio.NewWriter(treeReference)
 
-	// Jalankan Syntax Analyzer (Driver M2)
+	// Jalankan Syntax Analyzer
 	fmt.Println("Menjalankan Syntax Analysis...")
 	result := milestone2.SyntaxAnalyzer(cleanLexResult, &root)
 
 	if result == 0 { // 0 = Sukses
 		fmt.Println("Syntax Analysis Berhasil! Tree dicetak ke file & terminal.")
 
-		// Print ke Terminal (format Tree Linux)
+		// Print ke Terminal
 		milestone2.PrintAbstractSyntaxTree(&root, os.Stdout, "", true)
 
 		// Print ke File
 		milestone2.PrintAbstractSyntaxTree(&root, treeWriter, "", true)
+
+		fmt.Println("\nMembuat symbol table...")
+
+		builder := milestone3.NewSymbolTableBuilder()
+		err = builder.Build(&root)
+
+		if err != nil {
+			fmt.Printf("Symbol table gagal: %v\n", err)
+			if len(builder.GetErrors()) > 0 {
+				fmt.Println("\nError:")
+				for i, errMsg := range builder.GetErrors() {
+					fmt.Printf("  %d. %s\n", i+1, errMsg)
+				}
+			}
+		} else {
+			if len(builder.GetErrors()) > 0 {
+				fmt.Println("Symbol table built with warnings:")
+				for i, errMsg := range builder.GetErrors() {
+					fmt.Printf("  %d. %s\n", i+1, errMsg)
+				}
+				fmt.Println()
+			}
+
+			// output table
+			symTable := builder.GetSymbolTable()
+			symTable.PrintSymbolTable()
+
+			// Save ke file
+			symTableFile, err := os.Create("../test/output/symbol-table.txt")
+			if err == nil {
+				defer symTableFile.Close()
+				symTableWriter := bufio.NewWriter(symTableFile)
+
+				oldStdout := os.Stdout
+				r, w, _ := os.Pipe()
+				os.Stdout = w
+
+				symTable.PrintSymbolTable()
+
+				w.Close()
+				os.Stdout = oldStdout
+
+				buf := make([]byte, 1024)
+				for {
+					n, err := r.Read(buf)
+					if n > 0 {
+						symTableWriter.Write(buf[:n])
+					}
+					if err != nil {
+						break
+					}
+				}
+				symTableWriter.Flush()
+
+			}
+		}
 	} else {
 		fmt.Println("Syntax Analysis Gagal.")
 		treeWriter.WriteString("Syntax error found.")
