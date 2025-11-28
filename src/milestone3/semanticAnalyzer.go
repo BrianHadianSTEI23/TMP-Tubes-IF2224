@@ -579,33 +579,54 @@ func (sa *SemanticAnalyzer) visitSimpleExpression(node *milestone2.AbstractSynta
 }
 
 // Visit <term> node
-// Semantic rule: term.node = factor.node (or BinOpNode for mulop)
+// Semantic rule: <term> → <factor> (mulop <factor>)*
 func (sa *SemanticAnalyzer) visitTerm(node *milestone2.AbstractSyntaxTree) DecoratedNode {
-	if len(node.Children) == 1 {
-		// term → factor
-		return sa.visitFactor(node.Children[0])
+	if len(node.Children) == 0 {
+		return NewNumberNode(0)
 	}
 
-	if len(node.Children) >= 3 {
-		// term → factor mulop factor
-		left := sa.visitFactor(node.Children[0])
-		operator := extractValue(node.Children[1].Value)
-		right := sa.visitFactor(node.Children[2])
+	// Start with first factor
+	result := sa.visitFactor(node.Children[0])
 
-		// Type checking
-		leftType := sa.getNodeType(left)
-		rightType := sa.getNodeType(right)
-
-		if !sa.isNumericType(leftType) || !sa.isNumericType(rightType) {
-			sa.addError(fmt.Sprintf("Multiplicative operator requires numeric operands"))
+	// Handle chained operators: factor (*|/|div|mod|dan) factor (*|/|div|mod|dan) factor ...
+	for i := 1; i < len(node.Children)-1; i += 2 {
+		if i+1 >= len(node.Children) {
+			break
 		}
 
-		binOp := NewBinOpNode(operator, left, right)
-		binOp.Type = TypeInteger
-		return binOp
+		operatorNode := node.Children[i]
+		operator := extractValue(operatorNode.Value)
+
+		if node.Children[i+1].Value != "<factor>" {
+			break
+		}
+
+		right := sa.visitFactor(node.Children[i+1])
+
+		// Type checking
+		leftType := sa.getNodeType(result)
+		rightType := sa.getNodeType(right)
+
+		if operator == "dan" || operator == "and" {
+			// Logical AND - expects boolean operands
+			if leftType != TypeBoolean || rightType != TypeBoolean {
+				sa.addError("Logical AND operator requires boolean operands")
+			}
+			binOp := NewBinOpNode(operator, result, right)
+			binOp.Type = TypeBoolean
+			result = binOp
+		} else {
+			// Arithmetic operators
+			if !sa.isNumericType(leftType) || !sa.isNumericType(rightType) {
+				sa.addError("Multiplicative operator requires numeric operands")
+			}
+			binOp := NewBinOpNode(operator, result, right)
+			binOp.Type = TypeInteger
+			result = binOp
+		}
 	}
 
-	return NewNumberNode(0)
+	return result
 }
 
 // Visit <factor> node
@@ -613,6 +634,11 @@ func (sa *SemanticAnalyzer) visitTerm(node *milestone2.AbstractSyntaxTree) Decor
 // - <factor> → NUMBER : factor.node = new NumberNode(NUMBER.value)
 // - <factor> → ID : factor.node = new VarNode(ID.lexeme)
 // - <factor> → STRING_LITERAL : factor.node = new StringNode(STRING_LITERAL.value)
+// - <factor> → true/false : factor.node = new BooleanNode(value)
+// - <factor> → ( <expression> ) : factor.node = expression.node
+// - <factor> → tidak <factor> : factor.node = new UnaryOpNode("tidak", factor.node)
+// - <factor> → <function-call> : factor.node = function_call.node
+// - <factor> → CHAR_LITERAL : factor.node = new CharNode(value)
 func (sa *SemanticAnalyzer) visitFactor(node *milestone2.AbstractSyntaxTree) DecoratedNode {
 	for _, child := range node.Children {
 		if strings.Contains(child.Value, "NUMBER") {
@@ -632,6 +658,49 @@ func (sa *SemanticAnalyzer) visitFactor(node *milestone2.AbstractSyntaxTree) Dec
 			stringNode := NewStringNode(valueStr)
 			stringNode.Type = TypeChar
 			return stringNode
+		} else if strings.Contains(child.Value, "CHAR_LITERAL") {
+			// factor → CHAR_LITERAL
+			valueStr := extractValue(child.Value)
+			if len(valueStr) >= 2 && valueStr[0] == '\'' {
+				valueStr = valueStr[1 : len(valueStr)-1]
+			}
+			charVal := rune(0)
+			if len(valueStr) > 0 {
+				charVal = rune(valueStr[0])
+			}
+			charNode := &CharNode{
+				BaseDecoratedNode: BaseDecoratedNode{Type: TypeChar},
+				Value:             charVal,
+			}
+			return charNode
+		} else if strings.Contains(child.Value, "true") || strings.Contains(child.Value, "false") {
+			// factor → true | false
+			valueStr := extractValue(child.Value)
+			boolVal := (valueStr == "true")
+			boolNode := NewBooleanNode(boolVal)
+			boolNode.Type = TypeBoolean
+			return boolNode
+		} else if strings.Contains(child.Value, "tidak") || strings.Contains(child.Value, "not") {
+			// factor → tidak <factor> (NOT operator)
+			// Find the factor child
+			for _, subChild := range node.Children {
+				if subChild.Value == "<factor>" {
+					operand := sa.visitFactor(subChild)
+					operandType := sa.getNodeType(operand)
+					if operandType != TypeBoolean {
+						sa.addError("NOT operator requires boolean operand")
+					}
+					unaryOp := &UnaryOpNode{
+						BaseDecoratedNode: BaseDecoratedNode{Type: TypeBoolean},
+						Operator:          "tidak",
+						Operand:           operand,
+					}
+					return unaryOp
+				}
+			}
+		} else if child.Value == "<function-call>" {
+			// factor → <function-call>
+			return sa.visitFunctionCall(child)
 		} else if child.Value == "<variable>" {
 			// factor → variable (which contains ID)
 			return sa.visitVariable(child)
@@ -740,6 +809,47 @@ func (sa *SemanticAnalyzer) visitProcedureCall(node *milestone2.AbstractSyntaxTr
 	}
 
 	return procCall
+}
+
+// Visit <function-call> node (for function calls in expressions)
+// Semantic rule: function_call.node = new ProcCallNode(ID.lexeme, params.nodes)
+func (sa *SemanticAnalyzer) visitFunctionCall(node *milestone2.AbstractSyntaxTree) *ProcCallNode {
+	var funcName string
+	arguments := make([]DecoratedNode, 0)
+
+	// Extract function name and arguments
+	for _, child := range node.Children {
+		if strings.Contains(child.Value, "IDENTIFIER") {
+			funcName = extractValue(child.Value)
+		} else if child.Value == "<expr-list>" {
+			// Process expression list
+			for _, exprChild := range child.Children {
+				if exprChild.Value == "<expression>" {
+					arg := sa.visitExpression(exprChild)
+					arguments = append(arguments, arg)
+				}
+			}
+		}
+	}
+
+	funcCall := NewProcCallNode(funcName, arguments)
+
+	// Look up in symbol table
+	tabIndex, found := sa.SymTable.Lookup(funcName)
+	if !found {
+		sa.addError(fmt.Sprintf("Undefined function '%s'", funcName))
+	} else {
+		entry, _ := sa.SymTable.GetEntry(tabIndex)
+		if entry != nil {
+			if entry.Obj != ObjFunction {
+				sa.addError(fmt.Sprintf("'%s' is not a function", funcName))
+			}
+			funcCall.TabIndex = tabIndex
+			funcCall.Type = entry.Type // Function return type
+		}
+	}
+
+	return funcCall
 }
 
 // Visit <if-statement> node

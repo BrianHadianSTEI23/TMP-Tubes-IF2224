@@ -388,6 +388,29 @@ func (n *BooleanNode) Accept(visitor DecoratedNodeVisitor) {
 	visitor.VisitBoolean(n)
 }
 
+// CharNode - character literal
+type CharNode struct {
+	BaseDecoratedNode
+	Value rune
+}
+
+func NewCharNode(value rune) *CharNode {
+	return &CharNode{
+		BaseDecoratedNode: BaseDecoratedNode{
+			TabIndex: -1,
+			Type:     TypeChar,
+			Ref:      -1,
+			Errors:   make([]string, 0),
+			Warnings: make([]string, 0),
+		},
+		Value: value,
+	}
+}
+
+func (n *CharNode) Accept(visitor DecoratedNodeVisitor) {
+	// For now, no visitor pattern implementation
+}
+
 // ProcCallNode - procedure call
 type ProcCallNode struct {
 	BaseDecoratedNode
@@ -542,6 +565,9 @@ func PrintDecoratedAST(node DecoratedNode, prefix string, isLast bool) {
 	case *StringNode:
 		fmt.Printf("%s%sString('%s')\n", prefix, connector, n.Value)
 
+	case *CharNode:
+		fmt.Printf("%s%sChar('%c')\n", prefix, connector, n.Value)
+
 	case *BooleanNode:
 		fmt.Printf("%s%sBool(%v)\n", prefix, connector, n.Value)
 
@@ -638,6 +664,8 @@ func formatNodeInline(node DecoratedNode) string {
 		return fmt.Sprintf("Num(%d)", n.Value)
 	case *StringNode:
 		return fmt.Sprintf("String('%s')", n.Value)
+	case *CharNode:
+		return fmt.Sprintf("Char('%c')", n.Value)
 	case *BooleanNode:
 		return fmt.Sprintf("Bool(%v)", n.Value)
 	case *BinOpNode:
