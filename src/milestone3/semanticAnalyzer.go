@@ -729,10 +729,10 @@ func (sa *SemanticAnalyzer) visitFactor(node *milestone2.AbstractSyntaxTree) Dec
 // - <variable> → ID . ID : record field access
 func (sa *SemanticAnalyzer) visitVariable(node *milestone2.AbstractSyntaxTree) DecoratedNode {
 	var varNode *VarNode
-	var indexExpr DecoratedNode
 	var fieldName string
 
-	// Extract identifier, optional index, and optional field name
+	// Extract identifier, optional indices (multi-dimensional), and optional field name
+	indexExprs := make([]DecoratedNode, 0)
 	for _, child := range node.Children {
 		if strings.Contains(child.Value, "IDENTIFIER") {
 			if varNode == nil {
@@ -743,8 +743,9 @@ func (sa *SemanticAnalyzer) visitVariable(node *milestone2.AbstractSyntaxTree) D
 				fieldName = extractValue(child.Value)
 			}
 		} else if child.Value == "<expression>" {
-			// Array indexing: ID [ expression ]
-			indexExpr = sa.visitExpression(child)
+			// Collect all index expressions for multi-dimensional arrays
+			idxExpr := sa.visitExpression(child)
+			indexExprs = append(indexExprs, idxExpr)
 		}
 	}
 
@@ -798,29 +799,34 @@ func (sa *SemanticAnalyzer) visitVariable(node *milestone2.AbstractSyntaxTree) D
 		}
 	}
 
-	// Handle array indexing (can be combined with record: record.field[index])
-	if indexExpr != nil {
+	// Handle array indexing (supports multi-dimensional arrays)
+	if len(indexExprs) > 0 {
 		varNode.IsIndexed = true
-		varNode.Index = indexExpr
 
-		// Type checking: verify variable is an array
-		if varNode.Type != TypeArray {
-			sa.addError(fmt.Sprintf("'%s' is not an array", varNode.Name))
-		} else {
-			// Get element type from ATAB using Ref
+		for dimIdx, idxExpr := range indexExprs {
+			if varNode.Type != TypeArray {
+				if dimIdx == 0 {
+					sa.addError(fmt.Sprintf("'%s' is not an array", varNode.Name))
+				} else {
+					sa.addError(fmt.Sprintf("Too many dimensions for array '%s'", varNode.Name))
+				}
+				break
+			}
+
+			if sa.getNodeType(idxExpr) != TypeInteger {
+				sa.addError(fmt.Sprintf("Array index (dimension %d) must be integer type", dimIdx+1))
+			}
+
+			// Resolve to element type via ATAB chain
 			if varNode.Ref >= 0 && varNode.Ref < len(sa.SymTable.Atab) {
 				atabEntry := sa.SymTable.Atab[varNode.Ref]
-				// Resolve to element type
 				varNode.Type = TypeKind(atabEntry.Etyp)
 				varNode.Ref = atabEntry.Eref
-
-				// Type check index expression
-				indexType := sa.getNodeType(indexExpr)
-				if indexType != TypeInteger {
-					sa.addError("Array index must be integer type")
-				}
 			}
 		}
+
+		// Store last index
+		varNode.Index = indexExprs[len(indexExprs)-1]
 	}
 
 	return varNode
@@ -898,6 +904,9 @@ func (sa *SemanticAnalyzer) visitProcedureCall(node *milestone2.AbstractSyntaxTr
 				}
 				procCall.TabIndex = tabIndex
 				procCall.Type = entry.Type
+
+				// Parameter type checking
+				sa.checkProcedureArguments(procName, entry, arguments)
 			}
 		} else {
 			sa.addError(fmt.Sprintf("Undefined procedure '%s'", procName))
@@ -942,6 +951,9 @@ func (sa *SemanticAnalyzer) visitFunctionCall(node *milestone2.AbstractSyntaxTre
 			}
 			funcCall.TabIndex = tabIndex
 			funcCall.Type = entry.Type // Function return type
+
+			// Parameter type checking
+			sa.checkProcedureArguments(funcName, entry, arguments)
 		}
 	}
 
@@ -1013,6 +1025,10 @@ func (sa *SemanticAnalyzer) visitWhileStatement(node *milestone2.AbstractSyntaxT
 }
 
 // Visit <for-statement> node
+// Semantic rules:
+// - Loop variable must be declared
+// - Start and end expressions must be integer type
+// - Loop variable must be integer type
 func (sa *SemanticAnalyzer) visitForStatement(node *milestone2.AbstractSyntaxTree) *ForNode {
 	forNode := &ForNode{
 		BaseDecoratedNode: BaseDecoratedNode{
@@ -1025,12 +1041,144 @@ func (sa *SemanticAnalyzer) visitForStatement(node *milestone2.AbstractSyntaxTre
 	}
 
 	// Extract for loop components
-	// TODO: Implement for statement parsing
+	// Grammar: untuk ID := <expression> (ke|turun_ke) <expression> lakukan <statement>
+	var loopVarName string
+	var startExpr, endExpr DecoratedNode
+	var direction string
+	var body DecoratedNode
+
+	for _, child := range node.Children {
+		if strings.Contains(child.Value, "IDENTIFIER") {
+			loopVarName = extractValue(child.Value)
+		} else if child.Value == "<expression>" {
+			if startExpr == nil {
+				startExpr = sa.visitExpression(child)
+			} else {
+				endExpr = sa.visitExpression(child)
+			}
+		} else if strings.Contains(child.Value, "ke") || strings.Contains(child.Value, "turun_ke") {
+			direction = extractValue(child.Value)
+		} else if child.Value == "<statement>" {
+			body = sa.visitStatement(child)
+		}
+	}
+
+	// Type checking and variable setup
+	if loopVarName != "" {
+		tabIndex, found := sa.SymTable.Lookup(loopVarName)
+		if !found {
+			sa.addError(fmt.Sprintf("Loop variable '%s' is not declared", loopVarName))
+		} else {
+			entry, _ := sa.SymTable.GetEntry(tabIndex)
+			if entry != nil {
+				if entry.Type != TypeInteger {
+					sa.addError(fmt.Sprintf("Loop variable '%s' must be integer type", loopVarName))
+				}
+				if entry.Obj != ObjVariable {
+					sa.addError(fmt.Sprintf("Loop counter '%s' must be a variable", loopVarName))
+				}
+				forNode.TabIndex = tabIndex
+
+				// Create loop variable node
+				loopVarNode := NewVarNode(loopVarName)
+				loopVarNode.TabIndex = tabIndex
+				loopVarNode.Type = entry.Type
+				loopVarNode.Level = entry.Lev
+				forNode.Variable = loopVarNode
+			}
+		}
+	}
+
+	// Type check expressions and set remaining fields
+	if startExpr != nil {
+		if sa.getNodeType(startExpr) != TypeInteger {
+			sa.addError("FOR loop start expression must be integer type")
+		}
+		forNode.StartValue = startExpr
+	}
+
+	if endExpr != nil {
+		if sa.getNodeType(endExpr) != TypeInteger {
+			sa.addError("FOR loop end expression must be integer type")
+		}
+		forNode.EndValue = endExpr
+	}
+
+	forNode.IsDownTo = (direction == "turun_ke")
+	forNode.Body = body
 
 	return forNode
 }
 
 // ========== HELPER FUNCTIONS ==========
+
+// Check procedure/function arguments match parameters
+func (sa *SemanticAnalyzer) checkProcedureArguments(name string, entry *TabEntry, arguments []DecoratedNode) {
+	if entry.Ref < 0 || entry.Ref >= len(sa.SymTable.Btab) {
+		return // No BTAB entry, cannot validate
+	}
+
+	btabEntry := sa.SymTable.Btab[entry.Ref]
+
+	// Collect parameters from linked list
+	params := []TabEntry{}
+	paramIdx := btabEntry.Lpar
+
+	// Traverse parameter chain
+	for paramIdx >= 0 && paramIdx < btabEntry.Last {
+		if paramIdx >= len(sa.SymTable.Tab) {
+			break
+		}
+		paramEntry := sa.SymTable.Tab[paramIdx]
+
+		// Parameters are ObjVariable at procedure's level + 1
+		if paramEntry.Obj == ObjVariable && paramEntry.Lev == entry.Lev+1 {
+			params = append(params, paramEntry)
+		}
+
+		// Follow link
+		paramIdx = paramEntry.Link
+		if paramIdx == -1 {
+			break
+		}
+	}
+
+	// Check argument count
+	if len(arguments) != len(params) {
+		sa.addError(fmt.Sprintf("'%s' expects %d argument(s) but got %d", name, len(params), len(arguments)))
+		return
+	}
+
+	// Check each argument's type
+	for i := 0; i < len(arguments) && i < len(params); i++ {
+		argType := sa.getNodeType(arguments[i])
+		paramType := params[i].Type
+
+		// Type compatibility check
+		if !sa.typesCompatible(argType, paramType) {
+			sa.addError(fmt.Sprintf("Argument %d of '%s': type mismatch (expected %s, got %s)",
+				i+1, name, paramType.String(), argType.String()))
+		}
+
+		// Check var parameter constraint (nrm == 0 means var parameter)
+		if params[i].Nrm == 0 {
+			// Var parameter requires an L-value (assignable variable)
+			if !sa.isLValue(arguments[i]) {
+				sa.addError(fmt.Sprintf("Argument %d of '%s': var parameter requires a variable, not an expression", i+1, name))
+			}
+		}
+	}
+}
+
+// Check if a node represents an L-value (can be assigned to)
+func (sa *SemanticAnalyzer) isLValue(node DecoratedNode) bool {
+	switch n := node.(type) {
+	case *VarNode:
+		return n.IsLValue
+	default:
+		return false
+	}
+}
 
 // Process type node
 func (sa *SemanticAnalyzer) processType(node *milestone2.AbstractSyntaxTree) (TypeKind, int) {
