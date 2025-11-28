@@ -18,7 +18,8 @@
     │   ├── KEYWORD(mulai)
     │   ├── <statement-list>
     │   │   ├── <assignment-statement>
-    │   │   │   ├── IDENTIFIER(a)
+    │   │   │   ├── <variable>
+    │   │   │   │   └── IDENTIFIER(a)
     │   │   │   ├── ASSIGN_OPERATOR(:=)
     │   │   │   └── <expression>
     │   │   │       └── <simple-expression>
@@ -27,20 +28,22 @@
     │   │   │                   └── NUMBER(5)
     │   │   ├── SEMICOLON(;)
     │   │   ├── <assignment-statement>
-    │   │   │   ├── IDENTIFIER(b)
+    │   │   │   ├── <variable>
+    │   │   │   │   └── IDENTIFIER(b)
     │   │   │   ├── ASSIGN_OPERATOR(:=)
     │   │   │   └── <expression>
     │   │   │       └── <simple-expression>
     │   │   │           ├── <term>
     │   │   │           │   └── <factor>
-    │   │   │           │       └── IDENTIFIER(a)
+    │   │   │           │       └── <variable>
+    │   │   │           │           └── IDENTIFIER(a)
     │   │   │           ├── ARITHMETIC_OPERATOR(+)
     │   │   │           └── <term>
     │   │   │               └── <factor>
     │   │   │                   └── NUMBER(10)
     │   │   ├── SEMICOLON(;)
     │   │   ├── <procedure-call>
-    │   │   │   ├── KEYWORD(writeln)
+    │   │   │   ├── IDENTIFIER(writeln)
     │   │   │   ├── LPARENTHESIS(()
     │   │   │   ├── <parameter-list>
     │   │   │   │   ├── <expression>
@@ -53,7 +56,8 @@
     │   │   │   │       └── <simple-expression>
     │   │   │   │           └── <term>
     │   │   │   │               └── <factor>
-    │   │   │   │                   └── IDENTIFIER(b)
+    │   │   │   │                   └── <variable>
+    │   │   │   │                       └── IDENTIFIER(b)
     │   │   │   └── RPARENTHESIS())
     │   │   └── SEMICOLON(;)
     │   └── KEYWORD(selesai)

@@ -1,0 +1,14 @@
+program ArrayTest;
+
+tipe
+  Vector = larik [1..10] dari integer;
+
+variabel
+  v: Vector;
+  i: integer;
+
+mulai
+  v[1] := 100;
+  i := v[1];
+  writeln(i)
+selesai.

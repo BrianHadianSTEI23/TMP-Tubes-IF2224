@@ -1,0 +1,13 @@
+program TestRecord;
+tipe
+  Mahasiswa = rekaman
+    nim: integer;
+    nama: integer;
+    ipk: integer
+  selesai;
+variabel
+  mhs: Mahasiswa;
+mulai
+  mhs := 1;
+  writeln('Done')
+selesai.
