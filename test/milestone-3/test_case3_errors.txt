@@ -1,0 +1,10 @@
+program TestErrors;
+
+variabel
+  a, b: integer;
+
+mulai
+  a := 5;
+  c := 10;
+  b := a + c;
+selesai.

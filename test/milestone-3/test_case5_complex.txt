@@ -1,0 +1,19 @@
+program Complex;
+
+konstanta
+  MAX = 100;
+
+variabel
+  a, b, c: integer;
+  result: integer;
+
+mulai
+  a := 10;
+  b := 20;
+  c := 30;
+  result := a + b * c;
+  writeln('A: ', a);
+  writeln('B: ', b);
+  writeln('C: ', c);
+  writeln('Result: ', result);
+selesai.

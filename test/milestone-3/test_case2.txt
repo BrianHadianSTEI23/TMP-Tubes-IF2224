@@ -1,0 +1,11 @@
+program Calculator;
+
+variabel
+  x, y, hasil: integer;
+
+mulai
+  x := 10;
+  y := 20;
+  hasil := x * y + 5;
+  writeln('Hasil: ', hasil);
+selesai.

@@ -159,43 +159,97 @@ func main() {
 		// Print ke File
 		milestone2.PrintAbstractSyntaxTree(&root, treeWriter, "", true)
 
-		fmt.Println("\nMembuat symbol table...")
+		fmt.Println("\n========== MILESTONE 3: SEMANTIC ANALYSIS ==========")
 
-		builder := milestone3.NewSymbolTableBuilder()
-		err = builder.Build(&root)
+		// Perform semantic analysis
+		fmt.Println("Performing semantic analysis...")
+		analyzer := milestone3.NewSemanticAnalyzer()
+		decoratedAST, err := analyzer.Analyze(&root)
 
 		if err != nil {
-			fmt.Printf("Symbol table gagal: %v\n", err)
-			if len(builder.GetErrors()) > 0 {
-				fmt.Println("\nError:")
-				for i, errMsg := range builder.GetErrors() {
+			fmt.Printf("Semantic analysis failed: %v\n", err)
+
+			// Print errors
+			if len(analyzer.GetErrors()) > 0 {
+				fmt.Println("\nSemantic errors:")
+				for i, errMsg := range analyzer.GetErrors() {
 					fmt.Printf("  %d. %s\n", i+1, errMsg)
+				}
+			}
+
+			// Print warnings
+			if len(analyzer.GetWarnings()) > 0 {
+				fmt.Println("\nSemantic warnings:")
+				for i, warnMsg := range analyzer.GetWarnings() {
+					fmt.Printf("  %d. %s\n", i+1, warnMsg)
 				}
 			}
 		} else {
-			if len(builder.GetErrors()) > 0 {
-				fmt.Println("Symbol table built with warnings:")
-				for i, errMsg := range builder.GetErrors() {
-					fmt.Printf("  %d. %s\n", i+1, errMsg)
-				}
-				fmt.Println()
-			}
+			fmt.Println("Semantic analysis completed successfully")
 
-			// output table
-			symTable := builder.GetSymbolTable()
+			// Print warnings if any
+			if len(analyzer.GetWarnings()) > 0 {
+				fmt.Println("\nSemantic warnings:")
+				for i, warnMsg := range analyzer.GetWarnings() {
+					fmt.Printf("  %d. %s\n", i+1, warnMsg)
+				}
+			}
+		}
+
+		// Get symbol table
+		symTable := analyzer.GetSymbolTable()
+
+		// Print symbol table
+		fmt.Println("\n========== SYMBOL TABLE ==========")
+		symTable.PrintSymbolTable()
+
+		// Print decorated AST
+		if decoratedAST != nil {
+			fmt.Println("\n========== DECORATED AST ==========")
+			milestone3.PrintDecoratedAST(decoratedAST, "", true)
+		}
+
+		// Save symbol table to file
+		symTableFile, err := os.Create("../test/output/symbol-table.txt")
+		if err == nil {
+			defer symTableFile.Close()
+			symTableWriter := bufio.NewWriter(symTableFile)
+
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
 			symTable.PrintSymbolTable()
 
-			// Save ke file
-			symTableFile, err := os.Create("../test/output/symbol-table.txt")
+			w.Close()
+			os.Stdout = oldStdout
+
+			buf := make([]byte, 1024)
+			for {
+				n, err := r.Read(buf)
+				if n > 0 {
+					symTableWriter.Write(buf[:n])
+				}
+				if err != nil {
+					break
+				}
+			}
+			symTableWriter.Flush()
+			fmt.Println("Symbol table saved to ../test/output/symbol-table.txt")
+		}
+
+		// Save decorated AST to file
+		if decoratedAST != nil {
+			decoratedASTFile, err := os.Create("../test/output/decorated-ast.txt")
 			if err == nil {
-				defer symTableFile.Close()
-				symTableWriter := bufio.NewWriter(symTableFile)
+				defer decoratedASTFile.Close()
+				decoratedASTWriter := bufio.NewWriter(decoratedASTFile)
 
 				oldStdout := os.Stdout
 				r, w, _ := os.Pipe()
 				os.Stdout = w
 
-				symTable.PrintSymbolTable()
+				milestone3.PrintDecoratedAST(decoratedAST, "", true)
 
 				w.Close()
 				os.Stdout = oldStdout
@@ -204,14 +258,14 @@ func main() {
 				for {
 					n, err := r.Read(buf)
 					if n > 0 {
-						symTableWriter.Write(buf[:n])
+						decoratedASTWriter.Write(buf[:n])
 					}
 					if err != nil {
 						break
 					}
 				}
-				symTableWriter.Flush()
-
+				decoratedASTWriter.Flush()
+				fmt.Println("Decorated AST saved to ../test/output/decorated-ast.txt")
 			}
 		}
 	} else {
