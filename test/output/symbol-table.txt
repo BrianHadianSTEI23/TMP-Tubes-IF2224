@@ -1,0 +1,19 @@
+
+========== SYMBOL TABLE (TAB) ==========
+idx   id                   obj          type         ref    nrm    lev  adr    link  
+--------------------------------------------------------------------------------
+29    Hello                program      void         0      1      0    0      28    
+30    a                    variable     integer      -1     1      0    5      29    
+31    b                    variable     integer      -1     1      0    6      30    
+32    writeln              procedure    void         -1     1      0    -1     31    
+
+========== BLOCK TABLE (BTAB) ==========
+idx   last   lpar   psze   vsze  
+----------------------------------------
+0     32     0      0      2     
+1     -1     0      0      0     
+
+========== ARRAY TABLE (ATAB) ==========
+idx   xtyp   etyp   eref   low    high   elsz   size  
+----------------------------------------------------------------
+
