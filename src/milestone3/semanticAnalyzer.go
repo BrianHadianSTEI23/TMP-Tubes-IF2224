@@ -488,6 +488,7 @@ func (sa *SemanticAnalyzer) visitAssignmentStatement(node *milestone2.AbstractSy
 				targetNode = NewVarNode(targetName)
 				targetNode.TabIndex = tabIndex
 				targetNode.Type = entry.Type
+				targetNode.Ref = entry.Ref
 				targetNode.Level = entry.Lev
 				targetNode.Address = entry.Adr
 				targetNode.IsLValue = true
@@ -722,13 +723,107 @@ func (sa *SemanticAnalyzer) visitFactor(node *milestone2.AbstractSyntaxTree) Dec
 }
 
 // Visit <variable> node
+// Handles:
+// - <variable> → ID : simple variable reference
+// - <variable> → ID [ expression ] : array indexing
+// - <variable> → ID . ID : record field access
 func (sa *SemanticAnalyzer) visitVariable(node *milestone2.AbstractSyntaxTree) DecoratedNode {
+	var varNode *VarNode
+	var indexExpr DecoratedNode
+	var fieldName string
+
+	// Extract identifier, optional index, and optional field name
 	for _, child := range node.Children {
 		if strings.Contains(child.Value, "IDENTIFIER") {
-			return sa.visitIdentifier(child)
+			if varNode == nil {
+				// First identifier is the variable
+				varNode = sa.visitIdentifier(child)
+			} else {
+				// Second identifier is field name (record.field)
+				fieldName = extractValue(child.Value)
+			}
+		} else if child.Value == "<expression>" {
+			// Array indexing: ID [ expression ]
+			indexExpr = sa.visitExpression(child)
 		}
 	}
-	return NewVarNode("unknown")
+
+	if varNode == nil {
+		return NewVarNode("unknown")
+	}
+
+	// Handle record field access first (ID.field)
+	if fieldName != "" {
+		// Verify variable is a record
+		if varNode.Type != TypeRecord {
+			sa.addError(fmt.Sprintf("'%s' is not a record", varNode.Name))
+			return varNode
+		}
+
+		// Look up field in record's BTAB
+		if varNode.Ref >= 0 && varNode.Ref < len(sa.SymTable.Btab) {
+			btabEntry := sa.SymTable.Btab[varNode.Ref]
+
+			// Search for field in record's symbol table entries
+			fieldTabIndex := btabEntry.Last
+			found := false
+
+			for fieldTabIndex >= 0 && fieldTabIndex < len(sa.SymTable.Tab) {
+				fieldEntry := sa.SymTable.Tab[fieldTabIndex]
+
+				if fieldEntry.Identifier == fieldName {
+					// Found the field - create new VarNode with field info
+					fieldNode := NewVarNode(varNode.Name + "." + fieldName)
+					fieldNode.TabIndex = fieldTabIndex
+					fieldNode.Type = fieldEntry.Type
+					fieldNode.Ref = fieldEntry.Ref
+					fieldNode.Level = fieldEntry.Lev
+					fieldNode.Address = varNode.Address + fieldEntry.Adr // Base + field offset
+					fieldNode.IsLValue = true
+					varNode = fieldNode
+					found = true
+					break
+				}
+
+				// Follow linked list
+				fieldTabIndex = fieldEntry.Link
+				if fieldTabIndex == -1 {
+					break
+				}
+			}
+
+			if !found {
+				sa.addError(fmt.Sprintf("Record '%s' has no field '%s'", varNode.Name, fieldName))
+			}
+		}
+	}
+
+	// Handle array indexing (can be combined with record: record.field[index])
+	if indexExpr != nil {
+		varNode.IsIndexed = true
+		varNode.Index = indexExpr
+
+		// Type checking: verify variable is an array
+		if varNode.Type != TypeArray {
+			sa.addError(fmt.Sprintf("'%s' is not an array", varNode.Name))
+		} else {
+			// Get element type from ATAB using Ref
+			if varNode.Ref >= 0 && varNode.Ref < len(sa.SymTable.Atab) {
+				atabEntry := sa.SymTable.Atab[varNode.Ref]
+				// Resolve to element type
+				varNode.Type = TypeKind(atabEntry.Etyp)
+				varNode.Ref = atabEntry.Eref
+
+				// Type check index expression
+				indexType := sa.getNodeType(indexExpr)
+				if indexType != TypeInteger {
+					sa.addError("Array index must be integer type")
+				}
+			}
+		}
+	}
+
+	return varNode
 }
 
 // Visit IDENTIFIER node
@@ -748,6 +843,7 @@ func (sa *SemanticAnalyzer) visitIdentifier(node *milestone2.AbstractSyntaxTree)
 	if entry != nil {
 		varNode.TabIndex = tabIndex
 		varNode.Type = entry.Type
+		varNode.Ref = entry.Ref
 		varNode.Level = entry.Lev
 		varNode.Address = entry.Adr
 		varNode.IsLValue = (entry.Obj == ObjVariable)
@@ -1020,9 +1116,79 @@ func (sa *SemanticAnalyzer) processArrayType(node *milestone2.AbstractSyntaxTree
 }
 
 // Process record type
+// Creates BTAB entry for record and processes field declarations
 func (sa *SemanticAnalyzer) processRecordType(node *milestone2.AbstractSyntaxTree) (TypeKind, int) {
-	// TODO: Implement record type processing
-	return TypeRecord, -1
+	// Create new block for record type
+	oldBlock := sa.SymTable.CurrentBlock
+	oldOffset := sa.CurrentOffset
+	sa.CurrentOffset = 0 // Fields start at offset 0
+
+	blockIndex := sa.SymTable.enterBlock()
+
+	// Process field-list
+	for _, child := range node.Children {
+		if child.Value == "<field-list>" {
+			sa.processFieldList(child, blockIndex)
+			break
+		}
+	}
+
+	// Update block's vsze with total size of all fields
+	sa.SymTable.Btab[blockIndex].Vsze = sa.CurrentOffset
+	sa.SymTable.Btab[blockIndex].Lpar = 0 // Records have no parameters
+
+	// Restore state
+	sa.SymTable.CurrentBlock = oldBlock
+	sa.CurrentOffset = oldOffset
+
+	return TypeRecord, blockIndex
+}
+
+// Process field list for record type
+func (sa *SemanticAnalyzer) processFieldList(node *milestone2.AbstractSyntaxTree, blockIndex int) {
+	if node.Value != "<field-list>" {
+		return
+	}
+
+	// Parse pattern: <identifier-list> : <type> (; <identifier-list> : <type>)*
+	for i := 0; i < len(node.Children); i++ {
+		child := node.Children[i]
+
+		if child.Value == "<identifier-list>" && i+2 < len(node.Children) {
+			// Extract field names
+			fieldNames := sa.extractIdentifierList(child)
+
+			// Get type (skip colon at i+1, type at i+2)
+			typeNode := node.Children[i+2]
+			fieldType, fieldRef := sa.processType(typeNode)
+			fieldSize := sa.SymTable.getTypeSize(fieldType, fieldRef)
+
+			// Enter each field into symbol table
+			for _, fieldName := range fieldNames {
+				// Enter field with ObjField class
+				tabIndex := sa.SymTable.Enter(
+					fieldName,
+					ObjField,
+					fieldType,
+					fieldRef,
+					1, // nrm = 1 for fields (normal)
+					sa.CurrentOffset,
+				)
+
+				// Update last pointer in BTAB
+				if blockIndex >= 0 && blockIndex < len(sa.SymTable.Btab) {
+					if sa.SymTable.Btab[blockIndex].Last == -1 {
+						sa.SymTable.Btab[blockIndex].Last = tabIndex
+					}
+				}
+
+				sa.CurrentOffset += fieldSize
+			}
+
+			// Skip to next field group (skip colon and type)
+			i += 2
+		}
+	}
 }
 
 // Extract identifier list
@@ -1047,9 +1213,64 @@ type Parameter struct {
 }
 
 // Extract parameters
+// Parses <parameter-list> and extracts parameter info including nrm field
+// nrm = 1 for normal (value) parameters
+// nrm = 0 for var (reference) parameters
 func (sa *SemanticAnalyzer) extractParameters(node *milestone2.AbstractSyntaxTree) []Parameter {
 	params := make([]Parameter, 0)
-	// TODO: Implement parameter extraction
+
+	if node.Value != "<parameter-list>" {
+		return params
+	}
+
+	// Parse pattern: <identifier-list> : <type> (; <identifier-list> : <type>)*
+	// Note: Current parser doesn't distinguish var parameters
+	// If parser is extended to support "variabel" keyword before identifier-list,
+	// set nrm=0 for those parameters
+
+	for i := 0; i < len(node.Children); i++ {
+		child := node.Children[i]
+
+		// Check if this is a var parameter (variabel keyword)
+		isVarParam := false
+		if strings.Contains(child.Value, "variabel") {
+			isVarParam = true
+			i++ // Skip to identifier-list
+			if i >= len(node.Children) {
+				break
+			}
+			child = node.Children[i]
+		}
+
+		if child.Value == "<identifier-list>" && i+2 < len(node.Children) {
+			// Extract parameter names
+			paramNames := sa.extractIdentifierList(child)
+
+			// Get type (skip colon at i+1, type at i+2)
+			typeNode := node.Children[i+2]
+			paramType, paramRef := sa.processType(typeNode)
+
+			// Determine nrm value
+			nrm := 1 // Default: normal (value) parameter
+			if isVarParam {
+				nrm = 0 // Var (reference) parameter
+			}
+
+			// Create parameter entries
+			for _, paramName := range paramNames {
+				params = append(params, Parameter{
+					Name: paramName,
+					Type: paramType,
+					Ref:  paramRef,
+					Nrm:  nrm,
+				})
+			}
+
+			// Skip to next parameter group (skip colon and type)
+			i += 2
+		}
+	}
+
 	return params
 }
 
