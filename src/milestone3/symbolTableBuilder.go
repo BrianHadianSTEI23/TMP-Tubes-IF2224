@@ -300,11 +300,11 @@ func (builder *SymbolTableBuilder) visit_SubprogramDeclaration(node *milestone2.
 	name := extractValue(nameNode.Value)
 
 	// Check duplicate
-	// if builder.SymTable.IsDeclaredInCurrentScope(name) {
-	// 	builder.Errors = append(builder.Errors,
-	// 		fmt.Sprintf("duplikasi deklarasi subprogram: %s", name))
-	// 	return nil
-	// }
+	if builder.SymTable.IsDeclaredInCurrentScope(name) {
+		builder.Errors = append(builder.Errors,
+			fmt.Sprintf("duplikasi deklarasi subprogram: %s", name))
+		return nil
+	}
 
 	// Create new block for subprogram
 	blockIndex := builder.SymTable.EnterBlock()
@@ -361,22 +361,22 @@ func (builder *SymbolTableBuilder) visit_SubprogramDeclaration(node *milestone2.
 	}
 
 	// Enter subprogram to parent scope
-	// objClass := ObjProcedure
-	// if isFungsi {
-	// 	objClass = ObjFunction
-	// }
+	objClass := ObjProcedure
+	if isFungsi {
+		objClass = ObjFunction
+	}
 
 	// Temporarily exit to parent scope to enter the subprogram
 	builder.SymTable.exitLevel()
 
-	// subprogIndex := builder.SymTable.Enter(
-	// 	name,
-	// 	objClass,
-	// 	returnType,
-	// 	blockIndex,
-	// 	1,
-	// 	0, // address will be set during code generation
-	// )
+	builder.SymTable.Enter(
+		name,
+		objClass,
+		returnType,
+		blockIndex,
+		1,
+		0, // address will be set during code generation
+	)
 
 	builder.SymTable.enterLevel()
 
@@ -747,6 +747,15 @@ func (builder *SymbolTableBuilder) extractConstValue(value string) (int, TypeKin
 		val, _ := strconv.Atoi(extractValue(value))
 		return val, TypeInteger
 	}
+	if strings.Contains(value, "CHAR_LITERAL") {
+        charValue := extractValue(value)
+        // Remove quotes and get ASCII value
+        if len(charValue) >= 3 && charValue[0] == '\'' && charValue[len(charValue)-1] == '\'' {
+            char := charValue[1] // Get character inside quotes
+            return int(char), TypeChar
+        }
+        return 0, TypeChar
+    }
 	if strings.Contains(value, "STRING_LITERAL") {
 		return 0, TypeChar // String treated as char array
 	}
