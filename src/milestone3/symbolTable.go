@@ -133,7 +133,10 @@ func NewSymbolTable() *SymbolTable {
 		ReservedWordsCount: 29,
 	}
 
-	st.enterBlock()
+	// Initialize global block (block 0)
+	st.enterLevelWithBlock()
+	// But we want to stay at level 0 for global
+	st.CurrentLevel = 0
 	st.initReservedWords()
 
 	return st
@@ -180,7 +183,7 @@ func (st *SymbolTable) enterBlock() int {
 
 	st.BtabIndex++
 	st.CurrentBlock = blockIndex
-	st.Display[st.CurrentLevel] = blockIndex
+	// Don't set Display here - let caller decide
 
 	return blockIndex
 }
@@ -189,7 +192,9 @@ func (st *SymbolTable) enterBlock() int {
 func (st *SymbolTable) exitBlock() {
 	if st.CurrentLevel > 0 {
 		st.CurrentLevel--
-		st.CurrentBlock = st.findParentBlock()
+		if st.CurrentLevel >= 0 {
+			st.CurrentBlock = st.Display[st.CurrentLevel]
+		}
 	}
 }
 
@@ -200,12 +205,32 @@ func (st *SymbolTable) enterLevel() {
 		// Extend display if needed
 		st.Display = append(st.Display, make([]int, 5)...)
 	}
+	// Update CurrentBlock from Display for this level
+	if st.CurrentLevel < len(st.Display) {
+		st.CurrentBlock = st.Display[st.CurrentLevel]
+	}
+}
+
+// Masuk ke nested level baru dengan block baru
+func (st *SymbolTable) enterLevelWithBlock() int {
+	st.CurrentLevel++
+	if st.CurrentLevel >= len(st.Display) {
+		// Extend display if needed
+		st.Display = append(st.Display, make([]int, 5)...)
+	}
+	// Create new block for this level
+	blockIndex := st.enterBlock()
+	st.Display[st.CurrentLevel] = blockIndex
+	return blockIndex
 }
 
 // Keluar dari nested level
 func (st *SymbolTable) exitLevel() {
 	if st.CurrentLevel > 0 {
 		st.CurrentLevel--
+		if st.CurrentLevel >= 0 {
+			st.CurrentBlock = st.Display[st.CurrentLevel]
+		}
 	}
 }
 

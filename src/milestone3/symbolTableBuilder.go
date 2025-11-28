@@ -306,9 +306,8 @@ func (builder *SymbolTableBuilder) visit_SubprogramDeclaration(node *milestone2.
 		return nil
 	}
 
-	// Create new block for subprogram
-	blockIndex := builder.SymTable.EnterBlock()
-	builder.SymTable.enterLevel()
+	// Create new level and block for subprogram
+	blockIndex := builder.SymTable.enterLevelWithBlock()
 
 	oldOffset := builder.CurrentOffset
 	builder.CurrentOffset = 5 // reset ke base offset stack frame
@@ -378,6 +377,8 @@ func (builder *SymbolTableBuilder) visit_SubprogramDeclaration(node *milestone2.
 		0, // address will be set during code generation
 	)
 
+	// Re-enter subprogram scope (use existing block)
+	builder.SymTable.Display[builder.SymTable.CurrentLevel+1] = blockIndex
 	builder.SymTable.enterLevel()
 
 	// For functions, add implicit return variable (same name as function)
@@ -403,7 +404,6 @@ func (builder *SymbolTableBuilder) visit_SubprogramDeclaration(node *milestone2.
 
 	// Exit subprogram scope
 	builder.SymTable.exitLevel()
-	builder.SymTable.exitBlock()
 	builder.CurrentOffset = oldOffset
 
 	return nil
@@ -533,12 +533,8 @@ func (builder *SymbolTableBuilder) processRecordType(node *milestone2.AbstractSy
 	// Structure: rekaman <field-list> selesai
 	// Record type creates a block in btab (similar to procedure/function)
 
-	// Save parent block
-	parentBlock := builder.SymTable.CurrentBlock
-
-	// Create new block for record
-	blockIndex := builder.SymTable.EnterBlock()
-	builder.SymTable.enterLevel()
+	// Create new level and block for record
+	blockIndex := builder.SymTable.enterLevelWithBlock()
 
 	// Save old offset
 	oldOffset := builder.CurrentOffset
@@ -565,9 +561,8 @@ func (builder *SymbolTableBuilder) processRecordType(node *milestone2.AbstractSy
 		builder.SymTable.Btab[blockIndex].Lpar = 0
 	}
 
-	// Exit record scope and restore parent block
+	// Exit record scope
 	builder.SymTable.exitLevel()
-	builder.SymTable.CurrentBlock = parentBlock
 	builder.CurrentOffset = oldOffset
 
 	return TypeRecord, blockIndex
