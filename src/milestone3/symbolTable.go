@@ -38,13 +38,13 @@ func (o ObjectClass) String() string {
 type TypeKind int
 
 const (
-	TypeInteger TypeKind = iota + 1
+	TypeNone TypeKind = iota
+	TypeInteger
 	TypeBoolean
 	TypeChar
 	// TypeReal
 	TypeArray
 	TypeRecord
-	TypeNone
 )
 
 func (t TypeKind) String() string {
@@ -141,10 +141,10 @@ func NewSymbolTable() *SymbolTable {
 
 func (st *SymbolTable) initReservedWords() {
 	reservedWords := []string{
-		"program", "variabel", "mulai", "selesai", "jika", "maka", "selain_itu",
-		"selama", "lakukan", "untuk", "ke", "turun_ke", "integer", "boolean",
-		"char", "larik", "dari", "prosedur", "fungsi", "konstanta", "tipe",
-		"true", "false", "ulangi", "sampai", "kasus", "rekaman", "dan", "atau",
+		"dan", "larik", "mulai", "kasus", "konstanta", "bagi", "turun_ke",
+		"lakukan", "selain_itu", "selesai", "untuk", "fungsi", "jika",
+		"mod", "tidak", "dari", "atau", "prosedur", "program", "rekaman",
+		"ulangi", "string", "maka", "ke", "tipe", "sampai", "variabel", "selama", "padat",
 	}
 
 	// for i, word := range reservedWords {
@@ -415,13 +415,13 @@ func (st *SymbolTable) IsDeclaredInCurrentScope(identifier string) bool {
 // Print seluruh symbol table untuk debugging
 func (st *SymbolTable) PrintSymbolTable() {
 	fmt.Println("\n========== SYMBOL TABLE (TAB) ==========")
-	fmt.Printf("%-5s %-20s %-12s %-12s %-6s %-6s %-4s %-6s %-6s\n",
+	fmt.Printf("%-5s %-20s %-12s %-6s %-6s %-6s %-4s %-6s %-6s\n",
 		"idx", "id", "obj", "type", "ref", "nrm", "lev", "adr", "link")
 	fmt.Println("--------------------------------------------------------------------------------")
 
 	for i := st.ReservedWordsCount; i < len(st.Tab); i++ {
 		entry := st.Tab[i]
-		fmt.Printf("%-5d %-20s %-12s %-12s %-6d %-6d %-4d %-6d %-6d\n",
+		fmt.Printf("%-5d %-20s %-12s %-6d %-6d %-6d %-4d %-6d %-6d\n",
 			i, entry.Identifier, entry.Obj, entry.Type,
 			entry.Ref, entry.Nrm, entry.Lev, entry.Adr, entry.Link)
 	}
