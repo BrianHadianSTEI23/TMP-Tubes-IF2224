@@ -31,7 +31,7 @@ func (builder *SymbolTableBuilder) Build(ast *milestone2.AbstractSyntaxTree) err
 	}
 
 	// Traverse AST dan build symbol table
-	err := builder.traverseProgram(ast)
+	err := builder.visit_Program(ast)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (builder *SymbolTableBuilder) GetErrors() []string {
 }
 
 // Traverse <program> node
-func (builder *SymbolTableBuilder) traverseProgram(node *milestone2.AbstractSyntaxTree) error {
+func (builder *SymbolTableBuilder) visit_Program(node *milestone2.AbstractSyntaxTree) error {
 	if node.Value != "<program>" {
 		return fmt.Errorf("expected <program> node, got %s", node.Value)
 	}
@@ -84,7 +84,7 @@ func (builder *SymbolTableBuilder) traverseProgram(node *milestone2.AbstractSynt
 
 	// Traverse declaration part (index 1)
 	if len(node.Children) > 1 {
-		err := builder.traverseDeclarationPart(node.Children[1])
+		err := builder.visit_DeclarationPart(node.Children[1])
 		if err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func (builder *SymbolTableBuilder) traverseProgram(node *milestone2.AbstractSynt
 }
 
 // Traverse <declaration-part> node
-func (builder *SymbolTableBuilder) traverseDeclarationPart(node *milestone2.AbstractSyntaxTree) error {
+func (builder *SymbolTableBuilder) visit_DeclarationPart(node *milestone2.AbstractSyntaxTree) error {
 	if node.Value != "<declaration-part>" {
 		return nil // Skip if not declaration part
 	}
@@ -112,22 +112,22 @@ func (builder *SymbolTableBuilder) traverseDeclarationPart(node *milestone2.Abst
 	for _, child := range node.Children {
 		switch child.Value {
 		case "<const-declaration>":
-			err := builder.traverseConstDeclaration(child)
+			err := builder.visit_ConstDeclaration(child)
 			if err != nil {
 				return err
 			}
 		case "<type-declaration>":
-			err := builder.traverseTypeDeclaration(child)
+			err := builder.visit_TypeDeclaration(child)
 			if err != nil {
 				return err
 			}
 		case "<var-declaration>":
-			err := builder.traverseVarDeclaration(child)
+			err := builder.visit_VarDeclaration(child)
 			if err != nil {
 				return err
 			}
 		case "<subprogram-declaration>":
-			err := builder.traverseSubprogramDeclaration(child)
+			err := builder.visit_SubprogramDeclaration(child)
 			if err != nil {
 				return err
 			}
@@ -138,7 +138,7 @@ func (builder *SymbolTableBuilder) traverseDeclarationPart(node *milestone2.Abst
 }
 
 // Traverse <const-declaration> node
-func (builder *SymbolTableBuilder) traverseConstDeclaration(node *milestone2.AbstractSyntaxTree) error {
+func (builder *SymbolTableBuilder) visit_ConstDeclaration(node *milestone2.AbstractSyntaxTree) error {
 	// Skip "konstanta" keyword (index 0)
 	// Traverse const definitions
 	for i := 1; i < len(node.Children); i++ {
@@ -207,7 +207,7 @@ func (builder *SymbolTableBuilder) traverseConstDeclaration(node *milestone2.Abs
 }
 
 // Traverse <type-declaration> node
-func (builder *SymbolTableBuilder) traverseTypeDeclaration(node *milestone2.AbstractSyntaxTree) error {
+func (builder *SymbolTableBuilder) visit_TypeDeclaration(node *milestone2.AbstractSyntaxTree) error {
 	// Skip "tipe" keyword
 	// Traverse type definitions: IDENTIFIER = <type> ;
 	for i := 1; i < len(node.Children); i += 4 {
@@ -245,7 +245,7 @@ func (builder *SymbolTableBuilder) traverseTypeDeclaration(node *milestone2.Abst
 }
 
 // Traverse <var-declaration> node
-func (builder *SymbolTableBuilder) traverseVarDeclaration(node *milestone2.AbstractSyntaxTree) error {
+func (builder *SymbolTableBuilder) visit_VarDeclaration(node *milestone2.AbstractSyntaxTree) error {
 	// Skip "variabel" keyword (index 0)
 	// Traverse: <identifier-list> : <type> ;
 	for i := 1; i < len(node.Children); i += 4 {
@@ -290,7 +290,7 @@ func (builder *SymbolTableBuilder) traverseVarDeclaration(node *milestone2.Abstr
 }
 
 // Traverse <subprogram-declaration> node
-func (builder *SymbolTableBuilder) traverseSubprogramDeclaration(node *milestone2.AbstractSyntaxTree) error {
+func (builder *SymbolTableBuilder) visit_SubprogramDeclaration(node *milestone2.AbstractSyntaxTree) error {
 	// Structure: (fungsi|prosedur) ID ( params ) (: type)? ; <declaration-part> <compound-statement> ;
 
 	keywordNode := node.Children[0]
@@ -396,7 +396,7 @@ func (builder *SymbolTableBuilder) traverseSubprogramDeclaration(node *milestone
 	// Find <declaration-part> in subprogram body
 	for _, child := range node.Children {
 		if child.Value == "<declaration-part>" {
-			builder.traverseDeclarationPart(child)
+			builder.visit_DeclarationPart(child)
 			break
 		}
 	}
@@ -548,7 +548,7 @@ func (builder *SymbolTableBuilder) processRecordType(node *milestone2.AbstractSy
 	// Find <field-list> node (should be between 'rekaman' keyword and 'selesai')
 	for _, child := range node.Children {
 		if child.Value == "<field-list>" {
-			err := builder.traverseFieldList(child)
+			err := builder.visit_FieldList(child)
 			if err != nil {
 				builder.Errors = append(builder.Errors,
 					fmt.Sprintf("Error processing record fields: %v", err))
@@ -574,7 +574,7 @@ func (builder *SymbolTableBuilder) processRecordType(node *milestone2.AbstractSy
 }
 
 // Traverse <field-list> node for record fields
-func (builder *SymbolTableBuilder) traverseFieldList(node *milestone2.AbstractSyntaxTree) error {
+func (builder *SymbolTableBuilder) visit_FieldList(node *milestone2.AbstractSyntaxTree) error {
 	// Field list structure: <identifier-list> : <type> (; <identifier-list> : <type>)*
 	// Similar to variable declarations
 
