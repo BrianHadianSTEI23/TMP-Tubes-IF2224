@@ -926,8 +926,8 @@ func (sa *SemanticAnalyzer) visitFunctionCall(node *milestone2.AbstractSyntaxTre
 	for _, child := range node.Children {
 		if strings.Contains(child.Value, "IDENTIFIER") {
 			funcName = extractValue(child.Value)
-		} else if child.Value == "<expr-list>" {
-			// Process expression list
+		} else if child.Value == "<parameter-list>" {
+			// Process parameter list (expressions separated by commas)
 			for _, exprChild := range child.Children {
 				if exprChild.Value == "<expression>" {
 					arg := sa.visitExpression(exprChild)
@@ -1453,6 +1453,8 @@ func (sa *SemanticAnalyzer) getNodeType(node DecoratedNode) TypeKind {
 	case *BinOpNode:
 		return n.Type
 	case *UnaryOpNode:
+		return n.Type
+	case *ProcCallNode:
 		return n.Type
 	default:
 		return TypeNone

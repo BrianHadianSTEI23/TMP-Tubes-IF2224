@@ -192,9 +192,7 @@ func (st *SymbolTable) enterBlock() int {
 func (st *SymbolTable) exitBlock() {
 	if st.CurrentLevel > 0 {
 		st.CurrentLevel--
-		if st.CurrentLevel >= 0 {
-			st.CurrentBlock = st.Display[st.CurrentLevel]
-		}
+		st.CurrentBlock = st.Display[st.CurrentLevel]
 	}
 }
 
@@ -228,9 +226,7 @@ func (st *SymbolTable) enterLevelWithBlock() int {
 func (st *SymbolTable) exitLevel() {
 	if st.CurrentLevel > 0 {
 		st.CurrentLevel--
-		if st.CurrentLevel >= 0 {
-			st.CurrentBlock = st.Display[st.CurrentLevel]
-		}
+		st.CurrentBlock = st.Display[st.CurrentLevel]
 	}
 }
 
@@ -309,14 +305,14 @@ func (st *SymbolTable) EnterBlock() int {
 
 // update vsze
 func (st *SymbolTable) AddVariableSize(amount int) {
-	if st.CurrentBlock >= 0 {
+	if st.CurrentBlock >= 0 && st.CurrentBlock < len(st.Btab) {
 		st.Btab[st.CurrentBlock].Vsze += amount
 	}
 }
 
 // update psze
 func (st *SymbolTable) AddParameterSize(amount int) {
-	if st.CurrentBlock >= 0 {
+	if st.CurrentBlock >= 0 && st.CurrentBlock < len(st.Btab) {
 		st.Btab[st.CurrentBlock].Psze += amount
 	}
 }

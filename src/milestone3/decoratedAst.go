@@ -673,6 +673,23 @@ func formatNodeInline(node DecoratedNode) string {
 			n.Operator, formatNodeInline(n.Left), formatNodeInline(n.Right))
 	case *UnaryOpNode:
 		return fmt.Sprintf("UnaryOp(op: '%s', operand: %s)", n.Operator, formatNodeInline(n.Operand))
+	case *ProcCallNode:
+		// Format function/procedure call
+		if len(n.Arguments) == 0 {
+			return fmt.Sprintf("%s()", n.Name)
+		}
+		args := make([]string, len(n.Arguments))
+		for i, arg := range n.Arguments {
+			args[i] = formatNodeInline(arg)
+		}
+		argsStr := ""
+		for i, arg := range args {
+			if i > 0 {
+				argsStr += ", "
+			}
+			argsStr += arg
+		}
+		return fmt.Sprintf("%s(%s)", n.Name, argsStr)
 	default:
 		return "<?>"
 	}
