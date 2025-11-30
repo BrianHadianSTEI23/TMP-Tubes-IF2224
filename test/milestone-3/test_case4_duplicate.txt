@@ -1,0 +1,11 @@
+program TestDuplicate;
+
+variabel
+  x: integer;
+  x: integer;
+  y: integer;
+
+mulai
+  x := 5;
+  y := x + 10;
+selesai.

@@ -1,0 +1,13 @@
+program StringTest;
+
+konstanta
+  MSG = 'Hello';
+
+variabel
+  name: larik [1..20] dari char;
+  ch: char;
+
+mulai
+  ch := 'A';
+  writeln(MSG)
+selesai.

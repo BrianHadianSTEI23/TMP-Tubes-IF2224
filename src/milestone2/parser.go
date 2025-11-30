@@ -328,6 +328,11 @@ func (p *Parser) parseType() (*AbstractSyntaxTree, error) {
 		return p.parseArrayType()
 	}
 
+	// Record type
+	if p.check("KEYWORD", "rekaman") {
+		return p.parseRecordType()
+	}
+
 	// User-defined type (IDENTIFIER)
 	if p.checkType("IDENTIFIER") {
 		t := p.advance()
@@ -425,6 +430,87 @@ func (p *Parser) parseArrayType() (*AbstractSyntaxTree, error) {
 		return nil, err
 	}
 	node.Children = append(node.Children, baseType)
+
+	return node, nil
+}
+
+// <record-type> -> rekaman <field-list> selesai
+func (p *Parser) parseRecordType() (*AbstractSyntaxTree, error) {
+	node := &AbstractSyntaxTree{Value: "<record-type>"}
+
+	rekaman, err := p.consume("KEYWORD", "rekaman", "Expected 'rekaman'")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, rekaman)
+
+	// Parse field list
+	fieldList, err := p.parseFieldList()
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, fieldList)
+
+	selesai, err := p.consume("KEYWORD", "selesai", "Expected 'selesai' after record fields")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, selesai)
+
+	return node, nil
+}
+
+// <field-list> -> <identifier-list> : <type> (; <identifier-list> : <type>)*
+func (p *Parser) parseFieldList() (*AbstractSyntaxTree, error) {
+	node := &AbstractSyntaxTree{Value: "<field-list>"}
+
+	// First field declaration
+	idList, err := p.parseIdentifierList()
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, idList)
+
+	colon, err := p.consume("COLON", ":", "Expected ':' in field declaration")
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, colon)
+
+	typ, err := p.parseType()
+	if err != nil {
+		return nil, err
+	}
+	node.Children = append(node.Children, typ)
+
+	// Additional field declarations separated by semicolons
+	for p.check("SEMICOLON", ";") {
+		semi := p.advance()
+		node.Children = append(node.Children, &AbstractSyntaxTree{Value: semi.String()})
+
+		// Check if there's another field declaration or if we're at 'selesai'
+		if p.check("KEYWORD", "selesai") {
+			break
+		}
+
+		idList2, err := p.parseIdentifierList()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, idList2)
+
+		colon2, err := p.consume("COLON", ":", "Expected ':' in field declaration")
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, colon2)
+
+		typ2, err := p.parseType()
+		if err != nil {
+			return nil, err
+		}
+		node.Children = append(node.Children, typ2)
+	}
 
 	return node, nil
 }
@@ -1006,8 +1092,8 @@ func (p *Parser) parseTerm() (*AbstractSyntaxTree, error) {
 func (p *Parser) parseFactor() (*AbstractSyntaxTree, error) {
 	node := &AbstractSyntaxTree{Value: "<factor>"}
 
-	// (NUMBER, STRING, CHAR, true, false)
-	if p.checkType("NUMBER") || p.checkType("STRING_LITERAL") || p.checkType("CHAR_LITERAL") || p.check("KEYWORD", "true") || p.check("KEYWORD", "false") {
+	// (NUMBER, REAL, STRING, CHAR, true, false)
+	if p.checkType("NUMBER") || p.checkType("REAL") || p.checkType("STRING_LITERAL") || p.checkType("CHAR_LITERAL") || p.check("KEYWORD", "true") || p.check("KEYWORD", "false") {
 		t := p.advance()
 		node.Children = append(node.Children, &AbstractSyntaxTree{Value: t.String()})
 		return node, nil

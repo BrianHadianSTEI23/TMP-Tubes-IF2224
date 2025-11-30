@@ -23,21 +23,21 @@ func Tokenize(token string) string {
 		"ke":         true,
 		"turun_ke":   true,
 		"integer":    true,
-		// "real":     true,
-		"boolean":   true,
-		"char":      true,
-		"larik":     true,
-		"dari":      true,
-		"prosedur":  true,
-		"fungsi":    true,
-		"konstanta": true,
-		"tipe":      true,
-		"true":      true,
-		"false":     true,
-		"ulangi":    true,
-		"sampai":    true,
-		"kasus":     true,
-		"rekaman":   true,
+		"real":       true,
+		"boolean":    true,
+		"char":       true,
+		"larik":      true,
+		"dari":       true,
+		"prosedur":   true,
+		"fungsi":     true,
+		"konstanta":  true,
+		"tipe":       true,
+		"true":       true,
+		"false":      true,
+		"ulangi":     true,
+		"sampai":     true,
+		"kasus":      true,
+		"rekaman":    true,
 		// "writeln":   true,
 		// "read":      true,
 		// "call":      true,
@@ -63,6 +63,9 @@ func Tokenize(token string) string {
 	}
 	if isNumber(token) {
 		return "NUMBER(" + token + ")"
+	}
+	if isRealNumber(token) {
+		return "REAL(" + token + ")"
 	}
 	if len(token) >= 2 && token[0] == '\'' && token[len(token)-1] == '\'' {
 		content := token[1 : len(token)-1]
@@ -123,4 +126,25 @@ func isNumber(token string) bool {
 		}
 	}
 	return true
+}
+
+func isRealNumber(token string) bool {
+	if len(token) == 0 {
+		return false
+	}
+
+	// Must contain exactly one dot
+	dotCount := 0
+	for i, char := range token {
+		if char == '.' {
+			dotCount++
+			// Dot cannot be first or last
+			if i == 0 || i == len(token)-1 {
+				return false
+			}
+		} else if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return dotCount == 1
 }
