@@ -364,8 +364,8 @@ func (st *SymbolTable) getTypeSize(typ TypeKind, ref int) int {
 	switch typ {
 	case TypeInteger, TypeBoolean, TypeChar:
 		return 1
-	// case TypeReal:
-	// 	return 8
+	case TypeReal:
+		return 8
 	case TypeArray:
 		if ref >= 0 && ref < len(st.Atab) {
 			return st.Atab[ref].Size

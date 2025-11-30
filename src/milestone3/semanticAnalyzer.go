@@ -323,9 +323,15 @@ func (sa *SemanticAnalyzer) visitSubprogramDeclaration(node *milestone2.Abstract
 	isFungsi := strings.Contains(keywordNode.Value, "fungsi")
 	name := extractValue(nameNode.Value)
 
-	if sa.SymTable.IsDeclaredInCurrentScope(name) {
-		sa.addError(fmt.Sprintf("Duplicate subprogram declaration: %s", name))
-		return nil
+	// Check for duplicate subprogram in current scope
+	if tabIndex, exists := sa.SymTable.LookupInCurrentScope(name); exists {
+		entry, _ := sa.SymTable.GetEntry(tabIndex)
+		if entry != nil && (entry.Obj == ObjProcedure || entry.Obj == ObjFunction) {
+			sa.addError(fmt.Sprintf("Duplicate subprogram declaration: %s", name))
+		} else if entry != nil {
+			// Also check if name conflicts with existing variable/type/constant
+			sa.addError(fmt.Sprintf("Identifier '%s' already declared as %s in current scope", name, entry.Obj))
+		}
 	}
 
 	// Create new level and block
