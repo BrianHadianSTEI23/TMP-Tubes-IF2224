@@ -175,6 +175,26 @@ func (sa *SemanticAnalyzer) visitVarDeclaration(node *milestone2.AbstractSyntaxT
 
 		// Process type
 		typ, ref := sa.processType(typeNode)
+
+		// Forward reference check: for user-defined types, ensure type is already declared
+		if typeNode.Value == "<type>" && len(typeNode.Children) > 0 {
+			typeChild := typeNode.Children[0]
+			if strings.HasPrefix(typeChild.Value, "IDENTIFIER(") {
+				typeName := extractValue(typeChild.Value)
+				// Check if type exists
+				if typeIdx, exists := sa.SymTable.Lookup(typeName); !exists {
+					sa.addError(fmt.Sprintf("Forward reference: type '%s' not declared before use", typeName))
+				} else {
+					// Verify it's actually a type
+					if entry, err := sa.SymTable.GetEntry(typeIdx); err == nil {
+						if entry.Obj != ObjType {
+							sa.addError(fmt.Sprintf("'%s' is not a type", typeName))
+						}
+					}
+				}
+			}
+		}
+
 		typeSize := sa.SymTable.getTypeSize(typ, ref)
 
 		// Enter each identifier to symbol table AND create decorated node
@@ -381,6 +401,13 @@ func (sa *SemanticAnalyzer) visitSubprogramDeclaration(node *milestone2.Abstract
 		}
 	}
 
+	// Validate function has return assignment
+	if isFungsi {
+		if !sa.checkFunctionHasReturnAssignment(body, name) {
+			sa.addWarning(fmt.Sprintf("Function '%s' should assign to its own name at least once", name))
+		}
+	}
+
 	sa.SymTable.exitLevel()
 	sa.CurrentOffset = oldOffset
 
@@ -568,11 +595,17 @@ func (sa *SemanticAnalyzer) visitSimpleExpression(node *milestone2.AbstractSynta
 		rightType := sa.getNodeType(right)
 
 		if !sa.isNumericType(leftType) || !sa.isNumericType(rightType) {
-			sa.addError(fmt.Sprintf("Arithmetic operator requires numeric operands"))
+			sa.addError("Arithmetic operator requires numeric operands")
 		}
 
 		binOp := NewBinOpNode(operator, left, right)
-		binOp.Type = TypeInteger
+		// Type promotion: if either operand is real, result is real
+		// Division (/) always produces real
+		if operator == "/" || leftType == TypeReal || rightType == TypeReal {
+			binOp.Type = TypeReal
+		} else {
+			binOp.Type = TypeInteger
+		}
 		return binOp
 	}
 
@@ -622,7 +655,13 @@ func (sa *SemanticAnalyzer) visitTerm(node *milestone2.AbstractSyntaxTree) Decor
 				sa.addError("Multiplicative operator requires numeric operands")
 			}
 			binOp := NewBinOpNode(operator, result, right)
-			binOp.Type = TypeInteger
+			// Type promotion: if either operand is real, result is real
+			// Division (/) always produces real
+			if operator == "/" || leftType == TypeReal || rightType == TypeReal {
+				binOp.Type = TypeReal
+			} else {
+				binOp.Type = TypeInteger
+			}
 			result = binOp
 		}
 	}
@@ -1205,6 +1244,8 @@ func (sa *SemanticAnalyzer) processType(node *milestone2.AbstractSyntaxTree) (Ty
 		switch typeStr {
 		case "integer":
 			return TypeInteger, -1
+		case "real":
+			return TypeReal, -1
 		case "boolean":
 			return TypeBoolean, -1
 		case "char":
@@ -1446,6 +1487,8 @@ func (sa *SemanticAnalyzer) getNodeType(node DecoratedNode) TypeKind {
 		return n.Type
 	case *NumberNode:
 		return TypeInteger
+	case *RealNode:
+		return TypeReal
 	case *StringNode:
 		return TypeChar
 	case *BooleanNode:
@@ -1466,6 +1509,10 @@ func (sa *SemanticAnalyzer) typesCompatible(type1, type2 TypeKind) bool {
 	if type1 == type2 {
 		return true
 	}
+	// Integer can be promoted to real
+	if (type1 == TypeInteger && type2 == TypeReal) || (type1 == TypeReal && type2 == TypeInteger) {
+		return true
+	}
 	// Integer and char are compatible
 	if (type1 == TypeInteger && type2 == TypeChar) ||
 		(type1 == TypeChar && type2 == TypeInteger) {
@@ -1476,7 +1523,7 @@ func (sa *SemanticAnalyzer) typesCompatible(type1, type2 TypeKind) bool {
 
 // Check if type is numeric
 func (sa *SemanticAnalyzer) isNumericType(typ TypeKind) bool {
-	return typ == TypeInteger || typ == TypeChar
+	return typ == TypeInteger || typ == TypeChar || typ == TypeReal
 }
 
 // Add error
@@ -1497,4 +1544,53 @@ func extractValue(tokenValue string) string {
 		}
 	}
 	return tokenValue
+}
+
+// Check if function body contains assignment to function name
+func (sa *SemanticAnalyzer) checkFunctionHasReturnAssignment(body DecoratedNode, funcName string) bool {
+	if body == nil {
+		return false
+	}
+
+	switch node := body.(type) {
+	case *BlockNode:
+		for _, stmt := range node.Statements {
+			if sa.checkStatementForReturnAssignment(stmt, funcName) {
+				return true
+			}
+		}
+	case *AssignNode:
+		return sa.checkStatementForReturnAssignment(node, funcName)
+	}
+	return false
+}
+
+// Check if a statement contains assignment to function name
+func (sa *SemanticAnalyzer) checkStatementForReturnAssignment(stmt DecoratedNode, funcName string) bool {
+	switch node := stmt.(type) {
+	case *AssignNode:
+		if varNode, ok := node.Target.(*VarNode); ok {
+			if varNode.Name == funcName {
+				return true
+			}
+		}
+	case *BlockNode:
+		for _, s := range node.Statements {
+			if sa.checkStatementForReturnAssignment(s, funcName) {
+				return true
+			}
+		}
+	case *IfNode:
+		if sa.checkStatementForReturnAssignment(node.ThenStmt, funcName) {
+			return true
+		}
+		if node.ElseStmt != nil && sa.checkStatementForReturnAssignment(node.ElseStmt, funcName) {
+			return true
+		}
+	case *WhileNode:
+		return sa.checkStatementForReturnAssignment(node.Body, funcName)
+	case *ForNode:
+		return sa.checkStatementForReturnAssignment(node.Body, funcName)
+	}
+	return false
 }

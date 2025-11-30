@@ -1092,8 +1092,8 @@ func (p *Parser) parseTerm() (*AbstractSyntaxTree, error) {
 func (p *Parser) parseFactor() (*AbstractSyntaxTree, error) {
 	node := &AbstractSyntaxTree{Value: "<factor>"}
 
-	// (NUMBER, STRING, CHAR, true, false)
-	if p.checkType("NUMBER") || p.checkType("STRING_LITERAL") || p.checkType("CHAR_LITERAL") || p.check("KEYWORD", "true") || p.check("KEYWORD", "false") {
+	// (NUMBER, REAL, STRING, CHAR, true, false)
+	if p.checkType("NUMBER") || p.checkType("REAL") || p.checkType("STRING_LITERAL") || p.checkType("CHAR_LITERAL") || p.check("KEYWORD", "true") || p.check("KEYWORD", "false") {
 		t := p.advance()
 		node.Children = append(node.Children, &AbstractSyntaxTree{Value: t.String()})
 		return node, nil

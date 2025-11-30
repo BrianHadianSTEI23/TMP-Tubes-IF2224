@@ -342,6 +342,30 @@ func (n *NumberNode) Accept(visitor DecoratedNodeVisitor) {
 	visitor.VisitNumber(n)
 }
 
+// RealNode - real number literal
+type RealNode struct {
+	BaseDecoratedNode
+	Value float64
+}
+
+func NewRealNode(value float64) *RealNode {
+	return &RealNode{
+		BaseDecoratedNode: BaseDecoratedNode{
+			TabIndex: -1,
+			Type:     TypeReal,
+			Ref:      -1,
+			Errors:   make([]string, 0),
+			Warnings: make([]string, 0),
+		},
+		Value: value,
+	}
+}
+
+func (n *RealNode) Accept(visitor DecoratedNodeVisitor) {
+	// For now, treat like NumberNode
+	visitor.VisitNumber(nil)
+}
+
 // StringNode - string literal
 type StringNode struct {
 	BaseDecoratedNode

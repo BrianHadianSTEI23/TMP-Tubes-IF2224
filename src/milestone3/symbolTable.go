@@ -42,7 +42,7 @@ const (
 	TypeInteger
 	TypeBoolean
 	TypeChar
-	// TypeReal
+	TypeReal
 	TypeArray
 	TypeRecord
 )
@@ -55,8 +55,8 @@ func (t TypeKind) String() string {
 		return "boolean"
 	case TypeChar:
 		return "char"
-	// case TypeReal:
-	// 	return "real"
+	case TypeReal:
+		return "real"
 	case TypeArray:
 		return "array"
 	case TypeRecord:
@@ -133,10 +133,12 @@ func NewSymbolTable() *SymbolTable {
 		ReservedWordsCount: 29,
 	}
 
-	// Initialize global block (block 0)
-	st.enterLevelWithBlock()
-	// But we want to stay at level 0 for global
+	// Initialize global block (block 0) at level 0
+	blockIndex := st.enterBlock()
+	st.Display[0] = blockIndex
 	st.CurrentLevel = 0
+	st.CurrentBlock = blockIndex
+
 	st.initReservedWords()
 
 	return st
@@ -149,19 +151,6 @@ func (st *SymbolTable) initReservedWords() {
 		"mod", "tidak", "dari", "atau", "prosedur", "program", "rekaman",
 		"ulangi", "string", "maka", "ke", "tipe", "sampai", "variabel", "selama", "padat",
 	}
-
-	// for i, word := range reservedWords {
-	// 	st.Tab = append(st.Tab, TabEntry{
-	// 		Identifier: word,
-	// 		Link:       -1,
-	// 		Obj:        ObjConstant, // Reserved words treated as constants
-	// 		Type:       TypeNone,
-	// 		Ref:        -1,
-	// 		Nrm:        0,
-	// 		Lev:        0,
-	// 		Adr:        i,
-	// 	})
-	// }
 
 	for i, word := range reservedWords {
 		st.Enter(word, ObjConstant, TypeNone, 0, 1, i)
@@ -186,14 +175,6 @@ func (st *SymbolTable) enterBlock() int {
 	// Don't set Display here - let caller decide
 
 	return blockIndex
-}
-
-// Keluar dari block saat ini
-func (st *SymbolTable) exitBlock() {
-	if st.CurrentLevel > 0 {
-		st.CurrentLevel--
-		st.CurrentBlock = st.Display[st.CurrentLevel]
-	}
 }
 
 // Masuk ke nested level baru
@@ -228,14 +209,6 @@ func (st *SymbolTable) exitLevel() {
 		st.CurrentLevel--
 		st.CurrentBlock = st.Display[st.CurrentLevel]
 	}
-}
-
-//  Cari parent block dari current level
-func (st *SymbolTable) findParentBlock() int {
-	if st.BtabIndex > 1 {
-		return st.Display[st.CurrentLevel]
-	}
-	return 0
 }
 
 // Menambahkan identifier baru ke symbol table
@@ -274,12 +247,12 @@ func (st *SymbolTable) Enter(
 
 // Menambahkan entry ke array table
 func (st *SymbolTable) EnterArray(xtyp, etyp, eref, low, high, elsz int) int {
-	if st.AtabIndex == 0 {
-		st.Atab = append(st.Atab, AtabEntry{})
-		st.AtabIndex++
-	}
-
 	index := st.AtabIndex
+
+	// Check for potential overflow
+	if high < low {
+		low, high = high, low
+	}
 	size := elsz * (high - low + 1)
 
 	entry := AtabEntry{
@@ -333,24 +306,14 @@ func (st *SymbolTable) Lookup(identifier string) (int, bool) {
 		// Search linked list di block ini
 		if blockIndex >= 0 && blockIndex < len(st.Btab) {
 			idx := st.Btab[blockIndex].Last
-			for idx >= 0 {
+			for idx >= 0 && idx < len(st.Tab) {
 				if st.Tab[idx].Identifier == identifier {
 					return idx, true
 				}
 				idx = st.Tab[idx].Link
-				if idx == -1 {
-					break
-				}
 			}
 		}
 	}
-
-	// Search di semua block dari current ke global
-	// for i := st.TabIndex - 1; i >= st.ReservedWordsCount; i-- {
-	// 	if st.Tab[i].Identifier == identifier && st.Tab[i].Lev <= st.CurrentLevel {
-	// 		return i, true
-	// 	}
-	// }
 
 	return -1, false
 }
@@ -367,9 +330,6 @@ func (st *SymbolTable) LookupInCurrentScope(identifier string) (int, bool) {
 			return idx, true
 		}
 		idx = st.Tab[idx].Link
-		if idx == -1 {
-			break
-		}
 	}
 
 	return -1, false
