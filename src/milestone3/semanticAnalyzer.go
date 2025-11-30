@@ -661,11 +661,22 @@ func (sa *SemanticAnalyzer) visitTerm(node *milestone2.AbstractSyntaxTree) Decor
 				sa.addError("Multiplicative operator requires numeric operands")
 			}
 			binOp := NewBinOpNode(operator, result, right)
-			// Type promotion: if either operand is real, result is real
-			// Division (/) always produces real
-			if operator == "/" || leftType == TypeReal || rightType == TypeReal {
+
+			// Type determination based on operator and operand types
+			if operator == "/" {
+				// Division (/) always produces real
+				binOp.Type = TypeReal
+			} else if operator == "bagi" || operator == "div" || operator == "mod" {
+				// Integer division (bagi/div) and modulo require integer operands and produce integer
+				if leftType != TypeInteger || rightType != TypeInteger {
+					sa.addError(fmt.Sprintf("Operator '%s' requires integer operands", operator))
+				}
+				binOp.Type = TypeInteger
+			} else if leftType == TypeReal || rightType == TypeReal {
+				// Multiplication with real operand produces real
 				binOp.Type = TypeReal
 			} else {
+				// Integer multiplication produces integer
 				binOp.Type = TypeInteger
 			}
 			result = binOp
@@ -772,13 +783,16 @@ func (sa *SemanticAnalyzer) visitFactor(node *milestone2.AbstractSyntaxTree) Dec
 // - <variable> → ID : simple variable reference
 // - <variable> → ID [ expression ] : array indexing
 // - <variable> → ID . ID : record field access
+// - <variable> → ID [ expr ] . field : array element with field access (arr[i].field)
+// - <variable> → ID . field [ expr ] : record field with array access (rec.arr[i])
 func (sa *SemanticAnalyzer) visitVariable(node *milestone2.AbstractSyntaxTree) DecoratedNode {
 	var varNode *VarNode
 	var fieldName string
+	hasFieldBeforeIndex := false
 
 	// Extract identifier, optional indices (multi-dimensional), and optional field name
 	indexExprs := make([]DecoratedNode, 0)
-	for _, child := range node.Children {
+	for i, child := range node.Children {
 		if strings.Contains(child.Value, "IDENTIFIER") {
 			if varNode == nil {
 				// First identifier is the variable
@@ -786,6 +800,9 @@ func (sa *SemanticAnalyzer) visitVariable(node *milestone2.AbstractSyntaxTree) D
 			} else {
 				// Second identifier is field name (record.field)
 				fieldName = extractValue(child.Value)
+				// Check if field comes before indices (rec.field[i]) vs after (arr[i].field)
+				hasFieldBeforeIndex = i < len(node.Children)-1 &&
+					len(indexExprs) == 0
 			}
 		} else if child.Value == "<expression>" {
 			// Collect all index expressions for multi-dimensional arrays
@@ -798,50 +815,13 @@ func (sa *SemanticAnalyzer) visitVariable(node *milestone2.AbstractSyntaxTree) D
 		return NewVarNode("unknown")
 	}
 
-	// Handle record field access first (ID.field)
-	if fieldName != "" {
-		// Verify variable is a record
-		if varNode.Type != TypeRecord {
-			sa.addError(fmt.Sprintf("'%s' is not a record", varNode.Name))
-			return varNode
-		}
+	// Process access patterns based on order:
+	// Pattern 1: arr[i].field - Apply indices first, then field access
+	// Pattern 2: rec.field[i] - Apply field access first, then indices
 
-		// Look up field in record's BTAB
-		if varNode.Ref >= 0 && varNode.Ref < len(sa.SymTable.Btab) {
-			btabEntry := sa.SymTable.Btab[varNode.Ref]
-
-			// Search for field in record's symbol table entries
-			fieldTabIndex := btabEntry.Last
-			found := false
-
-			for fieldTabIndex >= 0 && fieldTabIndex < len(sa.SymTable.Tab) {
-				fieldEntry := sa.SymTable.Tab[fieldTabIndex]
-
-				if fieldEntry.Identifier == fieldName {
-					// Found the field - create new VarNode with field info
-					fieldNode := NewVarNode(varNode.Name + "." + fieldName)
-					fieldNode.TabIndex = fieldTabIndex
-					fieldNode.Type = fieldEntry.Type
-					fieldNode.Ref = fieldEntry.Ref
-					fieldNode.Level = fieldEntry.Lev
-					fieldNode.Address = varNode.Address + fieldEntry.Adr // Base + field offset
-					fieldNode.IsLValue = true
-					varNode = fieldNode
-					found = true
-					break
-				}
-
-				// Follow linked list
-				fieldTabIndex = fieldEntry.Link
-				if fieldTabIndex == -1 {
-					break
-				}
-			}
-
-			if !found {
-				sa.addError(fmt.Sprintf("Record '%s' has no field '%s'", varNode.Name, fieldName))
-			}
-		}
+	if fieldName != "" && hasFieldBeforeIndex {
+		// Pattern 2: rec.field[i] - Field access before indexing
+		varNode = sa.processFieldAccess(varNode, fieldName)
 	}
 
 	// Handle array indexing (supports multi-dimensional arrays)
@@ -872,6 +852,58 @@ func (sa *SemanticAnalyzer) visitVariable(node *milestone2.AbstractSyntaxTree) D
 
 		// Store last index
 		varNode.Index = indexExprs[len(indexExprs)-1]
+	}
+
+	if fieldName != "" && !hasFieldBeforeIndex {
+		// Pattern 1: arr[i].field - Field access after indexing
+		varNode = sa.processFieldAccess(varNode, fieldName)
+	}
+
+	return varNode
+}
+
+// Helper function to process field access on a record
+func (sa *SemanticAnalyzer) processFieldAccess(varNode *VarNode, fieldName string) *VarNode {
+	// Verify variable is a record
+	if varNode.Type != TypeRecord {
+		sa.addError(fmt.Sprintf("'%s' is not a record (cannot access field '%s')", varNode.Name, fieldName))
+		return varNode
+	}
+
+	// Look up field in record's BTAB
+	if varNode.Ref >= 0 && varNode.Ref < len(sa.SymTable.Btab) {
+		btabEntry := sa.SymTable.Btab[varNode.Ref]
+
+		// Search for field in record's symbol table entries
+		fieldTabIndex := btabEntry.Last
+		found := false
+
+		for fieldTabIndex >= 0 && fieldTabIndex < len(sa.SymTable.Tab) {
+			fieldEntry := sa.SymTable.Tab[fieldTabIndex]
+
+			if fieldEntry.Identifier == fieldName {
+				// Found the field - create new VarNode with field info
+				fieldNode := NewVarNode(varNode.Name + "." + fieldName)
+				fieldNode.TabIndex = fieldTabIndex
+				fieldNode.Type = fieldEntry.Type
+				fieldNode.Ref = fieldEntry.Ref
+				fieldNode.Level = fieldEntry.Lev
+				fieldNode.Address = varNode.Address + fieldEntry.Adr // Base + field offset
+				fieldNode.IsLValue = true
+				found = true
+				return fieldNode
+			}
+
+			// Follow linked list
+			fieldTabIndex = fieldEntry.Link
+			if fieldTabIndex == -1 {
+				break
+			}
+		}
+
+		if !found {
+			sa.addError(fmt.Sprintf("Record '%s' has no field '%s'", varNode.Name, fieldName))
+		}
 	}
 
 	return varNode
@@ -1282,20 +1314,66 @@ func (sa *SemanticAnalyzer) processType(node *milestone2.AbstractSyntaxTree) (Ty
 // Process array type
 func (sa *SemanticAnalyzer) processArrayType(node *milestone2.AbstractSyntaxTree) (TypeKind, int) {
 	low, high := 0, 0
+	lowIsConst, highIsConst := false, false
 	var elementTypeNode *milestone2.AbstractSyntaxTree
 
 	for i, child := range node.Children {
 		if strings.Contains(child.Value, "NUMBER") {
-			if low == 0 {
-				low, _ = strconv.Atoi(extractValue(child.Value))
+			// Literal number - always a constant
+			numVal, err := strconv.Atoi(extractValue(child.Value))
+			if err != nil {
+				sa.addError(fmt.Sprintf("Invalid array bound: %s", extractValue(child.Value)))
+				continue
+			}
+
+			if !lowIsConst {
+				low = numVal
+				lowIsConst = true
 			} else {
-				high, _ = strconv.Atoi(extractValue(child.Value))
+				high = numVal
+				highIsConst = true
+			}
+		} else if strings.Contains(child.Value, "IDENTIFIER") {
+			// Identifier - must be a declared constant
+			constName := extractValue(child.Value)
+			tabIndex, found := sa.SymTable.Lookup(constName)
+
+			if !found {
+				sa.addError(fmt.Sprintf("Undefined constant '%s' in array bounds", constName))
+				continue
+			}
+
+			constEntry := sa.SymTable.Tab[tabIndex]
+			if constEntry.Obj != ObjConstant {
+				sa.addError(fmt.Sprintf("Array bounds must be constants (not variable '%s')", constName))
+				continue
+			}
+
+			// Use constant value from Adr field
+			constVal := constEntry.Adr
+			if !lowIsConst {
+				low = constVal
+				lowIsConst = true
+			} else {
+				high = constVal
+				highIsConst = true
 			}
 		} else if child.Value == "<type>" {
 			elementTypeNode = child
 		} else if i == len(node.Children)-1 {
 			elementTypeNode = child
 		}
+	}
+
+	// Validate bounds were found
+	if !lowIsConst || !highIsConst {
+		sa.addError("Array bounds must be compile-time constants")
+		low, high = 0, 0
+	}
+
+	// Validate bounds make sense
+	if low > high {
+		sa.addError(fmt.Sprintf("Array lower bound (%d) cannot be greater than upper bound (%d)", low, high))
 	}
 
 	if elementTypeNode == nil {
